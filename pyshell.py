@@ -4,6 +4,29 @@ import os
 import fcntl
 import types
 
+def _set_cloexec_flag(fd, cloexec=True):
+    try:
+        cloexec_flag = fcntl.FD_CLOEXEC
+    except AttributeError:
+        cloexec_flag = 1
+
+    old = fcntl.fcntl(fd, fcntl.F_GETFD)
+    if cloexec:
+        fcntl.fcntl(fd, fcntl.F_SETFD, old | cloexec_flag)
+    else:
+        fcntl.fcntl(fd, fcntl.F_SETFD, old & ~cloexec_flag)
+def pipe_cloexec():
+    """Create a pipe with FDs set CLOEXEC."""
+    # Pipes' FDs are set CLOEXEC by default because we don't want them
+    # to be inherited by other subprocesses: the CLOEXEC flag is removed
+    # from the child's FDs by _dup2(), between fork() and exec().
+    # This is not atomic: we would need the pipe2() syscall for that.
+    r, w = os.pipe()
+    _set_cloexec_flag(r)
+    _set_cloexec_flag(w)
+    return r, w
+
+
 class ShellScript(object):
     pass
 
@@ -29,6 +52,12 @@ class RunningPipeline(object):
         except StopIteration, e:
             self.processes[-1].stdout.close()
             raise
+    def join(self):
+        last = self.processes[-1]
+        if isinstance(last, subprocess.Popen):
+            last.wait()
+        elif isinstance(last, threading.Thread):
+            last.join()
 
 class Pipeline(ShellScript):
     def _coerce(self, thing):
@@ -82,7 +111,29 @@ class Command(Pipeline):
             args += ["--%s=%s" % (name, value) for (name, value) in self.kw.iteritems()]
         return [subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr, cwd=env.cwd, env=env.env, **kw)]
 
-class Function(Pipeline):
+class ThreadCommand(Pipeline):
+    def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
+        raise NotImplementedError()
+    def _run(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
+        kw['stdin'] = stdin
+        kw['stdout'] = stdout
+        kw['stderr'] = stderr
+        pipes = {}
+        for key in ('stdin', 'stdout', 'stderr'):
+            if kw[key] is subprocess.PIPE:
+                r, w = pipe_cloexec()
+                if key == 'stdin':
+                    pipes[key], kw[key] = w, os.fdopen(r, "r")
+                else:
+                    kw[key], pipes[key] = os.fdopen(w, "w"), r
+        th = threading.Thread(target=self.thread_main, args=arg, kwargs=kw)
+        th.start()
+        for key, value in pipes.iteritems():
+            setattr(th, key, value)
+        return [th]
+
+
+class Function(ThreadCommand):
     def __init__(self, function, *arg, **kw):
         self.function = function
         self.arg = arg
@@ -94,57 +145,20 @@ class Function(Pipeline):
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
         return u"%s.%s.%s(%s)" % (self.function.__module__, self.function.func_name, ', '.join(args))
-    def _set_cloexec_flag(self, fd, cloexec=True):
-        try:
-            cloexec_flag = fcntl.FD_CLOEXEC
-        except AttributeError:
-            cloexec_flag = 1
-
-        old = fcntl.fcntl(fd, fcntl.F_GETFD)
-        if cloexec:
-            fcntl.fcntl(fd, fcntl.F_SETFD, old | cloexec_flag)
-        else:
-            fcntl.fcntl(fd, fcntl.F_SETFD, old & ~cloexec_flag)
-    def pipe_cloexec(self):
-        """Create a pipe with FDs set CLOEXEC."""
-        # Pipes' FDs are set CLOEXEC by default because we don't want them
-        # to be inherited by other subprocesses: the CLOEXEC flag is removed
-        # from the child's FDs by _dup2(), between fork() and exec().
-        # This is not atomic: we would need the pipe2() syscall for that.
-        r, w = os.pipe()
-        self._set_cloexec_flag(r)
-        self._set_cloexec_flag(w)
-        return r, w
-    def _run(self, stdin = None, stdout = None, stderr = None, **kw):
+    def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
+        arg = self.arg + arg
         thkw = dict(self.kw)
         thkw.update(kw)
-        thkw['stdin'] = stdin
-        thkw['stdout'] = stdout
-        thkw['stderr'] = stderr
-        pipes = {}
-        for key in ('stdin', 'stdout', 'stderr'):
-            if thkw[key] is subprocess.PIPE:
-                r, w = self.pipe_cloexec()
-                if key == 'stdin':
-                    pipes[key], thkw[key] = w, os.fdopen(r, "r")
+        res = self.function(stdin=stdin, stdout=stdout, stderr=stderr, *arg, **thkw)
+        # Handle iterators:
+        if hasattr(res, "next"):
+            for x in res:
+                if isinstance(x, str):
+                    stdout.write(x)
+                elif isinstance(x, unicode):
+                    stdout.write(x.encode("utf-8"))
                 else:
-                    thkw[key], pipes[key] = os.fdopen(w, "w"), r
-        def fnwrapper(stdin, stdout, stderr, *arg, **kw):
-            res = self.function(stdin=stdin, stdout=stdout, stderr=stderr, *arg, **kw)
-            # Handle iterators:
-            if hasattr(res, "next"):
-                for x in res:
-                    if isinstance(x, str):
-                        stdout.write(x)
-                    elif isinstance(x, unicode):
-                        stdout.write(x.encode("utf-8"))
-                    else:
-                        stdout.write((unicode(x) + "\n").encode("utf-8"))
-        th = threading.Thread(target=fnwrapper, args=self.arg, kwargs=thkw)
-        th.start()
-        for key, value in pipes.iteritems():
-            setattr(th, key, value)
-        return [th]
+                    stdout.write((unicode(x) + "\n").encode("utf-8"))
 
 class Pipe(Pipeline):
     def __init__(self, src, dst):
@@ -157,10 +171,13 @@ class Pipe(Pipeline):
         dst = self.dst._run(stdin=src[-1].stdout, stdout=stdout, stderr=stderr, **kw)
         return src + dst
 
-class Group(Pipeline):
+class Group(ThreadCommand):
     def __init__(self, first, second):
         self.first = first
         self.second = second
+    def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
+        for item in [self.first, self.second]:
+            item.run(stdin=stdin, stdout=stdout, stderr=stderr, **kw).join()
     def  __repr__(self):
         return u"%s + %s" % (self.first, self.second)
 
@@ -211,3 +228,10 @@ if __name__ == '__main__':
         ]
 
     print list(data | e.grep("foo"))
+
+    print "===={test three}===="
+    
+    for x in ((e.echo("hejjo") | e.sed("s+o+FLUFF+g"))
+               + e.echo("hopp")
+             ) | e.sed("s+h+nan+g"):
+        print x
