@@ -2,29 +2,6 @@ import os
 import fcntl
 import select
 
-def _set_cloexec_flag(fd, cloexec=True):
-    try:
-        cloexec_flag = fcntl.FD_CLOEXEC
-    except AttributeError:
-        cloexec_flag = 1
-
-    old = fcntl.fcntl(fd, fcntl.F_GETFD)
-    if cloexec:
-        fcntl.fcntl(fd, fcntl.F_SETFD, old | cloexec_flag)
-    else:
-        fcntl.fcntl(fd, fcntl.F_SETFD, old & ~cloexec_flag)
-
-def pipe_cloexec():
-    """Create a pipe with FDs set CLOEXEC."""
-    # Pipes' FDs are set CLOEXEC by default because we don't want them
-    # to be inherited by other subprocesses: the CLOEXEC flag is removed
-    # from the child's FDs by _dup2(), between fork() and exec().
-    # This is not atomic: we would need the pipe2() syscall for that.
-    r, w = os.pipe()
-    _set_cloexec_flag(r)
-    _set_cloexec_flag(w)
-    return r, w
-
 class IOHandlers(object):
     ioHandlers = {}
 
@@ -66,11 +43,9 @@ class IOHandler(object):
 class InputHandler(IOHandler):
     events = select.POLLOUT
 
-    def __init__(self, iter):
+    def __init__(self, fd, iter):
         self.iter = iter
-        inr, inw = pipe_cloexec()
-        IOHandler.__init__(self, inw)
-        self.pipe_fd = inr
+        IOHandler.__init__(self, fd)
 
     def handle_event(self, event):
         try:
@@ -88,10 +63,8 @@ class LineInputHandler(InputHandler):
 class OutputHandler(IOHandler):
     events = select.POLLIN | select.POLLHUP | select.POLLERR
     
-    def __init__(self):
-        outr, outw = pipe_cloexec()
-        IOHandler.__init__(self, outr)
-        self.pipe_fd = outw
+    def __init__(self, fd):
+        IOHandler.__init__(self, fd)
         self.buffer = None
         self.eof = False
 
@@ -117,8 +90,8 @@ class OutputHandler(IOHandler):
             self.buffer = None
 
 class LineOutputHandler(OutputHandler):
-    def __init__(self):
-        OutputHandler.__init__(self)
+    def __init__(self, fd):
+        OutputHandler.__init__(self, fd)
         self.buffer = ""
 
     def handle_event(self, event):
