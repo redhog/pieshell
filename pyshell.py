@@ -140,12 +140,16 @@ class Function(Pipeline):
         self.kw = kw
 
     def repr(self):
-        args = []
-        if self.arg:
-            args += [repr(arg) for arg in self.arg]
-        if self.kw:
-            args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
-        return u"%s.%s.%s(%s)" % (self.function.__module__, self.function.func_name, ','.join(args))
+        thing = self.function
+        if isinstance(thing, types.FunctionType):
+            args = []
+            if self.arg:
+                args += [repr(arg) for arg in self.arg]
+            if self.kw:
+                args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
+            return u"%s.%s.%s(%s)" % (self.function.__module__, self.function.func_name, ','.join(args))
+        else:
+            return repr(thing)
 
     def _run(self, *arg, **kw):
         arg, kw, inputs, pipes = self.setup_run_pipes(*arg, **kw)
@@ -181,7 +185,7 @@ class Pipe(Pipeline):
         self.src = src
         self.dst = dst
     def repr(self):
-        return u"%s | %s" % (self.src, self.dst)
+        return u"%s | %s" % (self.src.repr(), self.dst.repr())
     def _run(self, stdin = None, stdout = None, stderr = None, **kw):
         src = self.src._run(stdin=stdin, stdout=subprocess.PIPE, stderr=stderr, **kw)
         dst = self.dst._run(stdin=src[-1].pipes['stdout'], stdout=stdout, stderr=stderr, **kw)
