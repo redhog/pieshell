@@ -5,20 +5,44 @@ import fcntl
 import types
 import iterio
 import pipe
+import os
 
 class ShellScript(object):
     pass
 
 class Environment(ShellScript):
-    def __init__(self):
-        self.cwd = None
-        self.env = None
+    def __init__(self, cwd = None, env = None, interactive = False):
+        self.cwd = cwd or os.getcwd()
+        self.env = env
+        self.interactive = interactive
+    def cd(self, cwd):
+        if not cwd.startswith("/"):
+            cwd = os.path.join(self.cwd, cwd)
+        cwd = os.path.abspath(cwd)
+        self.cwd = cwd
+        return self
+    def __call__(self, cwd = None, env = None, interactive = None):
+        if cwd is None:
+            cwd = self.cwd
+        if env is None:
+            env = self.env
+        if interactive is None:
+            interactive = self.interactive
+        if not cwd.startswith("/"):
+            cwd = os.path.join(self.cwd, cwd)
+        cwd = os.path.abspath(cwd)
+        return type(self)(cwd = cwd, env = env, interactive = interactive)
+    def __getitem__(self, name):
+        return self(name)
     def __getattr__(self, name):
         return Command(self, name)
     def __repr__(self):
-        return str(id(self))
+        if self.interactive:
+            return "%s:%s >>>" % (str(id(self))[:3], self.cwd)
+        else:
+            return "[%s:%s]" % (str(id(self))[:3], self.cwd)
 
-env = Environment()
+env = Environment(interactive = True)
 
 class RunningPipeline(object):
     def __init__(self, processes):
@@ -30,6 +54,9 @@ class RunningPipeline(object):
         last.wait()
 
 class Pipeline(ShellScript):
+    def __init__(self, env):
+        self.env = env
+
     def setup_run_pipes(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
         inputs = {'stdin': stdin,
                   'stdout': stdout,
@@ -47,25 +74,30 @@ class Pipeline(ShellScript):
         if isinstance(thing, Pipeline):
             return thing
         elif isinstance(thing, types.FunctionType) or hasattr(thing, "__iter__") or hasattr(thing, "next"):
-            return Function(thing)
+            return Function(self.env, thing)
         else:
             raise ValueError(type(thing))
     def __ror__(self, other):
-        return Pipe(self._coerce(other), self)
+        return Pipe(self.env, self._coerce(other), self)
     def __or__(self, other):
-        return Pipe(self, self._coerce(other))
+        return Pipe(self.env, self, self._coerce(other))
     def __gt__(self, file):
-        return Redirect(self, file, "stdout")
+        return Redirect(self.env, self, file, "stdout")
     def __lt__(self, file):
-        return Redirect(self, file, "stdin")
+        return Redirect(self.env, self, file, "stdin")
     def __add__(self, other):
-        return Group(self, other)
+        return Group(self.env, self, other)
     def run(self, stdin = None, stdout = subprocess.PIPE, stderr = None, **kw):
         return RunningPipeline(self._run(stdin = stdin, stdout = stdout, stderr = stderr, **kw))
     def __iter__(self):
         return iter(self.run(stdout=subprocess.PIPE))
     def __unicode__(self):
-        return "\n".join(iter(self(stdout=subprocess.PIPE)))
+        return "\n".join(iter(self.run(stdout=subprocess.PIPE)))
+    def __repr__(self):
+        if self.env.interactive:
+            return unicode(self)
+        else:
+            return self.repr()
 
 class Command(Pipeline):
     def __init__(self, env, name, arg = None, kw = None):
@@ -75,7 +107,7 @@ class Command(Pipeline):
         self.kw = kw
     def __call__(self, *arg, **kw):
         return type(self)(self.env, self.name, arg, kw)
-    def __repr__(self):
+    def repr(self):
         args = []
         if self.arg:
             args += [repr(arg) for arg in self.arg]
@@ -92,7 +124,7 @@ class Command(Pipeline):
         if self.kw:
             args += ["--%s=%s" % (name, value) for (name, value) in self.kw.iteritems()]
 
-        res = subprocess.Popen(args, cwd=env.cwd, env=env.env, **kw)
+        res = subprocess.Popen(args, cwd=self.env.cwd, env=self.env.env, **kw)
         for fd in inputs.itervalues():
             if isinstance(fd, int):
                 os.close(fd)
@@ -101,12 +133,13 @@ class Command(Pipeline):
         return [res]
 
 class Function(Pipeline):
-    def __init__(self, function, *arg, **kw):
+    def __init__(self, env, function, *arg, **kw):
+        self.env = env
         self.function = function
         self.arg = arg
         self.kw = kw
 
-    def __repr__(self):
+    def repr(self):
         args = []
         if self.arg:
             args += [repr(arg) for arg in self.arg]
@@ -143,10 +176,11 @@ class Function(Pipeline):
         
 
 class Pipe(Pipeline):
-    def __init__(self, src, dst):
+    def __init__(self, env, src, dst):
+        self.env = env
         self.src = src
         self.dst = dst
-    def __repr__(self):
+    def repr(self):
         return u"%s | %s" % (self.src, self.dst)
     def _run(self, stdin = None, stdout = None, stderr = None, **kw):
         src = self.src._run(stdin=stdin, stdout=subprocess.PIPE, stderr=stderr, **kw)
@@ -154,21 +188,23 @@ class Pipe(Pipeline):
         return src + dst
 
 # class Group(Pipeline):
-#     def __init__(self, first, second):
+#     def __init__(self, env, first, second):
+#         self.env = env
 #         self.first = first
 #         self.second = second
 #     def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
 #         for item in [self.first, self.second]:
 #             item.run(stdin=stdin, stdout=stdout, stderr=stderr, **kw).join()
-#     def  __repr__(self):
+#     def  repr(self):
 #         return u"%s + %s" % (self.first, self.second)
 
 class Redirect(Pipeline):
-    def __init__(self, pipeline, file, filedescr):
+    def __init__(self, env, pipeline, file, filedescr):
+        self.env = env
         self.pipeline = pipeline
         self.file = file
         self.filedescr = filedescr
-    def  __repr__(self):
+    def  repr(self):
         if self.filedescr == 'stdin':
             sep = "<"
         elif self.filedescr == 'stdout':
