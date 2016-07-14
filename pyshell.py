@@ -24,12 +24,25 @@ class RunningPipeline(object):
     def __init__(self, processes):
         self.processes = processes
     def __iter__(self):
-        return iterio.LineInputHandler(self.processes[-1].stdout.fileno())
+        return iterio.LineInputHandler(self.processes[-1].pipes['stdout'])
     def join(self):
         last = self.processes[-1]
         last.wait()
 
 class Pipeline(ShellScript):
+    def setup_run_pipes(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
+        inputs = {'stdin': stdin,
+                  'stdout': stdout,
+                  'stderr': stderr}
+        pipes = {}
+        for key in ('stdin', 'stdout', 'stderr'):
+            if inputs[key] is subprocess.PIPE:
+                r, w = pipe.pipe_cloexec()
+                if key == 'stdin':
+                    pipes[key], inputs[key] = w, r
+                else:
+                    inputs[key], pipes[key] = w, r
+        return arg, kw, inputs, pipes
     def _coerce(self, thing):
         if isinstance(thing, Pipeline):
             return thing
@@ -47,10 +60,10 @@ class Pipeline(ShellScript):
         return Redirect(self, file, "stdin")
     def __add__(self, other):
         return Group(self, other)
-    def __call__(self, stdin = None, stdout = subprocess.PIPE, stderr = None, **kw):
+    def run(self, stdin = None, stdout = subprocess.PIPE, stderr = None, **kw):
         return RunningPipeline(self._run(stdin = stdin, stdout = stdout, stderr = stderr, **kw))
     def __iter__(self):
-        return iter(self(stdout=subprocess.PIPE))
+        return iter(self.run(stdout=subprocess.PIPE))
     def __unicode__(self):
         return "\n".join(iter(self(stdout=subprocess.PIPE)))
 
@@ -69,31 +82,25 @@ class Command(Pipeline):
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
         return u"%s.%s(%s)" % (self.env, self.name, ', '.join(args))
-    def _run(self, stdin = None, stdout = None, stderr = None, **kw):
+    def _run(self, *args, **kw):
+        _, kw, inputs, pipes = self.setup_run_pipes(*args, **kw)
+        kw.update(inputs)
+
         args = [self.name]
         if self.arg:
             args += list(self.arg)
         if self.kw:
             args += ["--%s=%s" % (name, value) for (name, value) in self.kw.iteritems()]
-        return [subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr, cwd=env.cwd, env=env.env, **kw)]
 
-class PipeCommand(Pipeline):
-    def setup_run_pipes(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
-        inputs = {'stdin': stdin,
-                  'stdout': stdout,
-                  'stderr': stderr}
-        pipes = {}
-        for key in ('stdin', 'stdout', 'stderr'):
-            if inputs[key] is subprocess.PIPE:
-                r, w = pipe.pipe_cloexec()
-                if key == 'stdin':
-                    pipes[key], inputs[key] = w, os.fdopen(r, "r")
-                else:
-                    inputs[key], pipes[key] = os.fdopen(w, "w"), r
-        return arg, kw, inputs, pipes
+        res = subprocess.Popen(args, cwd=env.cwd, env=env.env, **kw)
+        for fd in inputs.itervalues():
+            if isinstance(fd, int):
+                os.close(fd)
+        res.pipes = pipes
 
+        return [res]
 
-class Function(PipeCommand):
+class Function(Pipeline):
     def __init__(self, function, *arg, **kw):
         self.function = function
         self.arg = arg
@@ -121,17 +128,16 @@ class Function(PipeCommand):
         thing = self.function
         if isinstance(thing, types.FunctionType):
             thing = thing(
-                iterio.LineInputHandler(inputs['stdin'].fileno()),
+                iterio.LineInputHandler(inputs['stdin']),
                 *self.arg, **self.kw)
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
 
         res = iterio.LineOutputHandler(
-            inputs['stdout'].fileno(),
-            [convert(x) for x in thing])
-        
-        for key, value in pipes.iteritems():
-            setattr(res, key, value)
+            inputs['stdout'],
+            (convert(x) for x in thing))
+
+        res.pipes = pipes
 
         return [res]
         
@@ -144,10 +150,10 @@ class Pipe(Pipeline):
         return u"%s | %s" % (self.src, self.dst)
     def _run(self, stdin = None, stdout = None, stderr = None, **kw):
         src = self.src._run(stdin=stdin, stdout=subprocess.PIPE, stderr=stderr, **kw)
-        dst = self.dst._run(stdin=src[-1].stdout, stdout=stdout, stderr=stderr, **kw)
+        dst = self.dst._run(stdin=src[-1].pipes['stdout'], stdout=stdout, stderr=stderr, **kw)
         return src + dst
 
-# class Group(IterCommand):
+# class Group(Pipeline):
 #     def __init__(self, first, second):
 #         self.first = first
 #         self.second = second
@@ -180,34 +186,38 @@ class Redirect(Pipeline):
 #    print line
 
 if __name__ == '__main__':
-    e = env
-    print "===={test one}===="
-    for x in e.ls | e.grep(".py$") | e.sed("s+shell+nanan+g"):
-        print x
+    try:
+        e = env
+        print "===={test one}===="
+        for x in e.ls | e.grep(".py$") | e.sed("s+shell+nanan+g"):
+            print x
+
+        print "===={test two}===="
+        def somefn():
+            yield "foo bar fien\n"
+            yield "foo naja hehe\n"
+            yield "bar naja fie\n"
+
+        for x in somefn() | e.grep("foo"):
+            print x
 
 
-    print "===={test two}===="
-    def somefn():
-        yield "foo bar fien\n"
-        yield "foo naja hehe\n"
-        yield "bar naja fie\n"
+        print "===={test three}===="
+        data = [
+            "foo bar fien\n",
+            "foo naja hehe\n",
+            "bar naja fie\n"
+            ]
 
-    for x in somefn() | e.grep("foo"):
-        print x
+        print list(data | e.grep("foo"))
 
+        # print "===={test four}===="
 
-    print "===={test three}===="
-    data = [
-        "foo bar fien\n",
-        "foo naja hehe\n",
-        "bar naja fie\n"
-        ]
-
-    print list(data | e.grep("foo"))
-
-    # print "===={test three}===="
-    
-    # for x in ((e.echo("hejjo") | e.sed("s+o+FLUFF+g"))
-    #            + e.echo("hopp")
-    #          ) | e.sed("s+h+nan+g"):
-    #     print x
+        # for x in ((e.echo("hejjo") | e.sed("s+o+FLUFF+g"))
+        #            + e.echo("hopp")
+        #          ) | e.sed("s+h+nan+g"):
+        #     print x
+    except:
+        import sys, pdb
+        sys.last_traceback = sys.exc_info()[2]
+        pdb.pm()

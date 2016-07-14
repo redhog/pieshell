@@ -9,13 +9,11 @@ class IOHandlers(object):
 
     @classmethod
     def register(cls, ioHandler):
-        print "REGISTER", ioHandler.fd
         cls.poll.register(ioHandler.fd, ioHandler.events)
         cls.ioHandlers[ioHandler.fd] = ioHandler
 
     @classmethod
     def deregister(cls, ioHandler):
-        print "DEREGISTER", ioHandler.fd
         cls.poll.unregister(ioHandler.fd)
         cls.ioHandlers[ioHandler.fd]
     
@@ -39,7 +37,6 @@ class IOHandler(object):
     def handle_event(self, event):
         pass
     def destroy(self):
-        print "DESTROY", self.fd
         IOHandlers.deregister(self)
         os.close(self.fd)
 
