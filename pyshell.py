@@ -6,6 +6,8 @@ import types
 import iterio
 import pipe
 import os
+import tempfile
+import uuid
 
 class ShellScript(object):
     pass
@@ -118,17 +120,48 @@ class Command(Pipeline):
         _, kw, inputs, pipes = self.setup_run_pipes(*args, **kw)
         kw.update(inputs)
 
+        named_pipes = {}
+        def handle_named_pipe(thing):
+            if hasattr(thing, "__iter__") or hasattr(thing, "next"):
+                thing = Function(self.env, thing)
+                direction = "w"
+            elif instance(value, types.FunctionType):
+                thing = Function(thing)
+                direction = "r"
+            elif isinstance(value, Pipeline):
+                direction = "r"
+            else:
+                return thing
+            name = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
+            os.mkfifo(name)
+
+            named_pipes[name] = (direction, thing)
+
+            return name
+
         args = [self.name]
         if self.arg:
-            args += list(self.arg)
+            args += [handle_named_pipe(item) for item in self.arg]
         if self.kw:
-            args += ["--%s=%s" % (name, value) for (name, value) in self.kw.iteritems()]
+            args += ["--%s=%s" % (name, handle_named_pipe(value))
+                     for (name, value) in self.kw.iteritems()]
 
         res = subprocess.Popen(args, cwd=self.env.cwd, env=self.env.env, **kw)
         for fd in inputs.itervalues():
             if isinstance(fd, int):
                 os.close(fd)
+
+        for name, (direction, thing) in named_pipes.iteritems():
+            fd = os.open(name, {'r': os.O_RDONLY,
+                                'w': os.O_WRONLY}[direction])
+            if direction == 'w':
+                thing.run(stdout=fd)
+            else:
+                thing.run(stdin=fd)
+
         res.pipes = pipes
+        for fd in pipes.itervalues():
+            pass
 
         return [res]
 
