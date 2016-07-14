@@ -3,29 +3,8 @@ import threading
 import os
 import fcntl
 import types
-
-def _set_cloexec_flag(fd, cloexec=True):
-    try:
-        cloexec_flag = fcntl.FD_CLOEXEC
-    except AttributeError:
-        cloexec_flag = 1
-
-    old = fcntl.fcntl(fd, fcntl.F_GETFD)
-    if cloexec:
-        fcntl.fcntl(fd, fcntl.F_SETFD, old | cloexec_flag)
-    else:
-        fcntl.fcntl(fd, fcntl.F_SETFD, old & ~cloexec_flag)
-def pipe_cloexec():
-    """Create a pipe with FDs set CLOEXEC."""
-    # Pipes' FDs are set CLOEXEC by default because we don't want them
-    # to be inherited by other subprocesses: the CLOEXEC flag is removed
-    # from the child's FDs by _dup2(), between fork() and exec().
-    # This is not atomic: we would need the pipe2() syscall for that.
-    r, w = os.pipe()
-    _set_cloexec_flag(r)
-    _set_cloexec_flag(w)
-    return r, w
-
+import iterio
+import pipe
 
 class ShellScript(object):
     pass
@@ -45,30 +24,17 @@ class RunningPipeline(object):
     def __init__(self, processes):
         self.processes = processes
     def __iter__(self):
-        return self
-    def next(self):
-        try:
-            return self.processes[-1].stdout.next()
-        except StopIteration, e:
-            self.processes[-1].stdout.close()
-            raise
+        return iterio.LineInputHandler(self.processes[-1].stdout.fileno())
     def join(self):
         last = self.processes[-1]
-        if isinstance(last, subprocess.Popen):
-            last.wait()
-        elif isinstance(last, threading.Thread):
-            last.join()
+        last.wait()
 
 class Pipeline(ShellScript):
     def _coerce(self, thing):
         if isinstance(thing, Pipeline):
             return thing
-        elif isinstance(thing, types.FunctionType):
+        elif isinstance(thing, types.FunctionType) or hasattr(thing, "__iter__") or hasattr(thing, "next"):
             return Function(thing)
-        elif hasattr(thing, "next"):
-            return Function(lambda stdin, stdout, stderr: thing)
-        elif hasattr(thing, "__iter__"):
-            return Function(lambda stdin, stdout, stderr: iter(thing))
         else:
             raise ValueError(type(thing))
     def __ror__(self, other):
@@ -81,12 +47,12 @@ class Pipeline(ShellScript):
         return Redirect(self, file, "stdin")
     def __add__(self, other):
         return Group(self, other)
-    def run(self, stdin = None, stdout = None, stderr = None, **kw):
-        return RunningPipeline(self._run(stdin = stdin, stdout = stdout, stderr = stderr, **kw))
     def __call__(self, stdin = None, stdout = subprocess.PIPE, stderr = None, **kw):
-        return self.run(stdin=stdin, stdout=stdout, stderr=stderr, **kw)
+        return RunningPipeline(self._run(stdin = stdin, stdout = stdout, stderr = stderr, **kw))
     def __iter__(self):
-        return self.run(stdout=subprocess.PIPE)
+        return iter(self(stdout=subprocess.PIPE))
+    def __unicode__(self):
+        return "\n".join(iter(self(stdout=subprocess.PIPE)))
 
 class Command(Pipeline):
     def __init__(self, env, name, arg = None, kw = None):
@@ -111,54 +77,64 @@ class Command(Pipeline):
             args += ["--%s=%s" % (name, value) for (name, value) in self.kw.iteritems()]
         return [subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr, cwd=env.cwd, env=env.env, **kw)]
 
-class ThreadCommand(Pipeline):
-    def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
-        raise NotImplementedError()
-    def _run(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
-        kw['stdin'] = stdin
-        kw['stdout'] = stdout
-        kw['stderr'] = stderr
+class PipeCommand(Pipeline):
+    def setup_run_pipes(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
+        inputs = {'stdin': stdin,
+                  'stdout': stdout,
+                  'stderr': stderr}
         pipes = {}
         for key in ('stdin', 'stdout', 'stderr'):
-            if kw[key] is subprocess.PIPE:
-                r, w = pipe_cloexec()
+            if inputs[key] is subprocess.PIPE:
+                r, w = pipe.pipe_cloexec()
                 if key == 'stdin':
-                    pipes[key], kw[key] = w, os.fdopen(r, "r")
+                    pipes[key], inputs[key] = w, os.fdopen(r, "r")
                 else:
-                    kw[key], pipes[key] = os.fdopen(w, "w"), r
-        th = threading.Thread(target=self.thread_main, args=arg, kwargs=kw)
-        th.start()
-        for key, value in pipes.iteritems():
-            setattr(th, key, value)
-        return [th]
+                    inputs[key], pipes[key] = os.fdopen(w, "w"), r
+        return arg, kw, inputs, pipes
 
 
-class Function(ThreadCommand):
+class Function(PipeCommand):
     def __init__(self, function, *arg, **kw):
         self.function = function
         self.arg = arg
         self.kw = kw
+
     def __repr__(self):
         args = []
         if self.arg:
             args += [repr(arg) for arg in self.arg]
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
-        return u"%s.%s.%s(%s)" % (self.function.__module__, self.function.func_name, ', '.join(args))
-    def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
-        arg = self.arg + arg
-        thkw = dict(self.kw)
-        thkw.update(kw)
-        res = self.function(stdin=stdin, stdout=stdout, stderr=stderr, *arg, **thkw)
-        # Handle iterators:
-        if hasattr(res, "next"):
-            for x in res:
-                if isinstance(x, str):
-                    stdout.write(x)
-                elif isinstance(x, unicode):
-                    stdout.write(x.encode("utf-8"))
-                else:
-                    stdout.write((unicode(x) + "\n").encode("utf-8"))
+        return u"%s.%s.%s(%s)" % (self.function.__module__, self.function.func_name, ','.join(args))
+
+    def _run(self, *arg, **kw):
+        arg, kw, inputs, pipes = self.setup_run_pipes(*arg, **kw)
+
+        def convert(x):
+            if isinstance(x, str):
+                return x
+            elif isinstance(x, unicode):
+                return x.encode("utf-8")
+            else:
+                return unicode(x).encode("utf-8")
+
+        thing = self.function
+        if isinstance(thing, types.FunctionType):
+            thing = thing(
+                iterio.LineInputHandler(inputs['stdin'].fileno()),
+                *self.arg, **self.kw)
+        if hasattr(thing, "__iter__"):
+            thing = iter(thing)
+
+        res = iterio.LineOutputHandler(
+            inputs['stdout'].fileno(),
+            [convert(x) for x in thing])
+        
+        for key, value in pipes.iteritems():
+            setattr(res, key, value)
+
+        return [res]
+        
 
 class Pipe(Pipeline):
     def __init__(self, src, dst):
@@ -171,15 +147,15 @@ class Pipe(Pipeline):
         dst = self.dst._run(stdin=src[-1].stdout, stdout=stdout, stderr=stderr, **kw)
         return src + dst
 
-class Group(ThreadCommand):
-    def __init__(self, first, second):
-        self.first = first
-        self.second = second
-    def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
-        for item in [self.first, self.second]:
-            item.run(stdin=stdin, stdout=stdout, stderr=stderr, **kw).join()
-    def  __repr__(self):
-        return u"%s + %s" % (self.first, self.second)
+# class Group(IterCommand):
+#     def __init__(self, first, second):
+#         self.first = first
+#         self.second = second
+#     def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
+#         for item in [self.first, self.second]:
+#             item.run(stdin=stdin, stdout=stdout, stderr=stderr, **kw).join()
+#     def  __repr__(self):
+#         return u"%s + %s" % (self.first, self.second)
 
 class Redirect(Pipeline):
     def __init__(self, pipeline, file, filedescr):
@@ -229,9 +205,9 @@ if __name__ == '__main__':
 
     print list(data | e.grep("foo"))
 
-    print "===={test three}===="
+    # print "===={test three}===="
     
-    for x in ((e.echo("hejjo") | e.sed("s+o+FLUFF+g"))
-               + e.echo("hopp")
-             ) | e.sed("s+h+nan+g"):
-        print x
+    # for x in ((e.echo("hejjo") | e.sed("s+o+FLUFF+g"))
+    #            + e.echo("hopp")
+    #          ) | e.sed("s+h+nan+g"):
+    #     print x

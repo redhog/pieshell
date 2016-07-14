@@ -9,11 +9,13 @@ class IOHandlers(object):
 
     @classmethod
     def register(cls, ioHandler):
+        print "REGISTER", ioHandler.fd
         cls.poll.register(ioHandler.fd, ioHandler.events)
         cls.ioHandlers[ioHandler.fd] = ioHandler
 
     @classmethod
     def deregister(cls, ioHandler):
+        print "DEREGISTER", ioHandler.fd
         cls.poll.unregister(ioHandler.fd)
         cls.ioHandlers[ioHandler.fd]
     
@@ -37,10 +39,11 @@ class IOHandler(object):
     def handle_event(self, event):
         pass
     def destroy(self):
+        print "DESTROY", self.fd
         IOHandlers.deregister(self)
         os.close(self.fd)
 
-class InputHandler(IOHandler):
+class OutputHandler(IOHandler):
     events = select.POLLOUT
 
     def __init__(self, fd, iter):
@@ -53,14 +56,14 @@ class InputHandler(IOHandler):
         except StopIteration:
             self.destroy()
 
-class LineInputHandler(InputHandler):
+class LineOutputHandler(OutputHandler):
     def handle_event(self, event):
         try:
             os.write(self.fd, self.iter.next() + "\n")
         except StopIteration:
             self.destroy()
 
-class OutputHandler(IOHandler):
+class InputHandler(IOHandler):
     events = select.POLLIN | select.POLLHUP | select.POLLERR
     
     def __init__(self, fd):
@@ -89,9 +92,9 @@ class OutputHandler(IOHandler):
         finally:
             self.buffer = None
 
-class LineOutputHandler(OutputHandler):
+class LineInputHandler(InputHandler):
     def __init__(self, fd):
-        OutputHandler.__init__(self, fd)
+        InputHandler.__init__(self, fd)
         self.buffer = ""
 
     def handle_event(self, event):

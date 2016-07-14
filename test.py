@@ -12,8 +12,8 @@ def datasource():
 inr, inw = pipe.pipe_cloexec()
 outr, outw = pipe.pipe_cloexec()
     
-inh = iterio.LineInputHandler(inw, datasource())
-outh = iterio.LineOutputHandler(outr)
+inh = iterio.LineOutputHandler(inw, datasource())
+outh = iterio.LineInputHandler(outr)
 proc = subprocess.Popen(["bash", "-c", "while read foo; do echo hej; echo $foo; done; echo nanana;"], stdin=inr, stdout=outw, stderr=outw)
 os.close(inr)
 os.close(outw)
