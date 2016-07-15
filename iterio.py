@@ -7,6 +7,12 @@ class IOHandlers(object):
 
     poll = select.poll()
 
+    cleanup = []
+
+    @classmethod
+    def register_cleanup(cls, cleanup):
+        cls.cleanup.append(cleanup)
+
     @classmethod
     def register(cls, ioHandler):
         cls.poll.register(ioHandler.fd, ioHandler.events)
@@ -16,10 +22,12 @@ class IOHandlers(object):
     def deregister(cls, ioHandler):
         cls.poll.unregister(ioHandler.fd)
         cls.ioHandlers[ioHandler.fd]
+        while len(cls.ioHandlers) and cls.cleanup:
+            cls.cleanup.pop()()
     
     @classmethod
     def handleIo(cls):
-        while True:
+        while cls.ioHandlers:
             events = cls.poll.poll()
             assert events
             done = False

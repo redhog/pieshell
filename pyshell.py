@@ -125,10 +125,10 @@ class Command(Pipeline):
             if hasattr(thing, "__iter__") or hasattr(thing, "next"):
                 thing = Function(self.env, thing)
                 direction = "w"
-            elif instance(value, types.FunctionType):
+            elif isinstance(thing, types.FunctionType):
                 thing = Function(thing)
                 direction = "r"
-            elif isinstance(value, Pipeline):
+            elif isinstance(thing, Pipeline):
                 direction = "r"
             else:
                 return thing
@@ -136,6 +136,11 @@ class Command(Pipeline):
             os.mkfifo(name)
 
             named_pipes[name] = (direction, thing)
+            
+            def clean_named_pipe():
+                os.unlink(name)
+
+            iterio.IOHandlers.register_cleanup(clean_named_pipe)
 
             return name
 
@@ -290,6 +295,11 @@ if __name__ == '__main__':
         #            + e.echo("hopp")
         #          ) | e.sed("s+h+nan+g"):
         #     print x
+
+        print "===={test five}===="
+
+        print list(env.cat(iter(["foo", "bar", "fie"])) | env.cat())
+
     except:
         import sys, pdb
         sys.last_traceback = sys.exc_info()[2]
