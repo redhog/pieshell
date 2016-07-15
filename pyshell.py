@@ -270,10 +270,14 @@ class LocalsEnv(dict):
                 raise
             return getattr(dict.__getitem__(self, 'env'), name)
 
+    def __str__(self):
+        return str(dict.__getitem__(self, 'env'))
+
 def interact():
     ps1 = getattr(sys, "ps1", None)
-    sys.ps1 = env
-    code.InteractiveConsole(locals=LocalsEnv(globals(), env = env)).interact()
+    locals = LocalsEnv(globals(), env = env)
+    sys.ps1 = locals
+    code.InteractiveConsole(locals=locals).interact()
     sys.ps1 = ps1
 
 # Example usage
