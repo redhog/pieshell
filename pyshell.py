@@ -8,6 +8,7 @@ import pipe
 import os
 import tempfile
 import uuid
+import code
 
 class ShellScript(object):
     pass
@@ -259,11 +260,29 @@ class Redirect(Pipeline):
             stdout = self.file
         return self.pipeline._run(stdin=stdin, stdout=stdout, stderr=stderr, **kw)
 
+
+class LocalsEnv(dict):
+    def __getitem__(self, name):
+        try:
+            return dict.__getitem__(self, name)
+        except KeyError:
+            if hasattr(__builtins__, name):
+                raise
+            return getattr(dict.__getitem__(self, 'env'), name)
+
+def interact():
+    code.InteractiveConsole(locals=LocalsEnv(globals(), env = env)).interact()
+
+
 # Example usage
 # for line in env.find(".", name='foo*', type='f') | env.grep("bar.*"):
 #    print line
 
 if __name__ == '__main__':
+    interact()
+
+if False:
+
     try:
         e = env
         print "===={test one}===="
