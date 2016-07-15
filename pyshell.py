@@ -45,7 +45,7 @@ class Environment(ShellScript):
         else:
             return "[%s:%s]" % (str(id(self))[:3], self.cwd)
 
-env = Environment(interactive = True)
+env = Environment()
 
 class RunningPipeline(object):
     def __init__(self, processes):
@@ -274,8 +274,9 @@ class LocalsEnv(dict):
         return str(dict.__getitem__(self, 'env'))
 
 def interact():
+    e = env(interactive=True)
     ps1 = getattr(sys, "ps1", None)
-    locals = LocalsEnv(globals(), env = env)
+    locals = LocalsEnv(globals(), env = e)
     sys.ps1 = locals
     code.InteractiveConsole(locals=locals).interact()
     sys.ps1 = ps1
