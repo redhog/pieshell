@@ -5,7 +5,7 @@ import fcntl
 import types
 import iterio
 import pipe
-import os
+import sys
 import tempfile
 import uuid
 import code
@@ -41,7 +41,7 @@ class Environment(ShellScript):
         return Command(self, name)
     def __repr__(self):
         if self.interactive:
-            return "%s:%s >>>" % (str(id(self))[:3], self.cwd)
+            return "%s:%s >>> " % (str(id(self))[:3], self.cwd)
         else:
             return "[%s:%s]" % (str(id(self))[:3], self.cwd)
 
@@ -271,8 +271,10 @@ class LocalsEnv(dict):
             return getattr(dict.__getitem__(self, 'env'), name)
 
 def interact():
+    ps1 = getattr(sys, "ps1", None)
+    sys.ps1 = env
     code.InteractiveConsole(locals=LocalsEnv(globals(), env = env)).interact()
-
+    sys.ps1 = ps1
 
 # Example usage
 # for line in env.find(".", name='foo*', type='f') | env.grep("bar.*"):
