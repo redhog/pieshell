@@ -17,26 +17,29 @@ class ShellScript(object):
 
 class Environment(ShellScript):
     def __init__(self, cwd = None, env = None, interactive = False):
-        self.cwd = cwd or os.getcwd()
+        self.cwd = os.getcwd()
+        if cwd is not None:
+            self.cd(cwd)
         self.env = env
         self.interactive = interactive
     def cd(self, cwd):
-        if not cwd.startswith("/"):
+        if not cwd.startswith("/") and not cwd.startswith("~"):
             cwd = os.path.join(self.cwd, cwd)
+        cwd = os.path.expanduser(cwd)
         cwd = os.path.abspath(cwd)
+        if not os.path.exists(cwd):
+            raise IOError("Path does not exist: %s" % cwd)
         self.cwd = cwd
         return self
     def __call__(self, cwd = None, env = None, interactive = None):
-        if cwd is None:
-            cwd = self.cwd
         if env is None:
             env = self.env
         if interactive is None:
             interactive = self.interactive
-        if not cwd.startswith("/"):
-            cwd = os.path.join(self.cwd, cwd)
-        cwd = os.path.abspath(cwd)
-        return type(self)(cwd = cwd, env = env, interactive = interactive)
+        res = type(self)(cwd = self.cwd, env = env, interactive = interactive)
+        if cwd is not None:
+            res.cd(cwd)
+        return res
     def __getitem__(self, name):
         return self(name)
     def __getattr__(self, name):
@@ -263,8 +266,11 @@ class Redirect(Pipeline):
         return self.pipeline._run(stdin=stdin, stdout=stdout, stderr=stderr, **kw)
 
 
-class LocalsEnv(dict):
+class EnvScope(dict):
+    def __getattr__(self, name):
+        print "GETATTR", name
     def __getitem__(self, name):
+        print "GETITEM", name
         try:
             return dict.__getitem__(self, name)
         except KeyError:
@@ -279,24 +285,12 @@ class InteractiveConsole(object):
     def __enter__(self):
         e = env(interactive=True)
         self.ps1 = getattr(sys, "ps1", None)
-        locals = LocalsEnv(globals(), env = e)
-        sys.ps1 = locals
-        return code.InteractiveConsole(locals=locals)
+        scope = EnvScope(globals(), env = e)
+        sys.ps1 = scope
+        return code.InteractiveConsole(locals=scope)
 
     def __exit__(self, *args, **kw):
         sys.ps1 = self.ps1
-
-def interact(cmd = None):
-    e = env(interactive=True)
-    ps1 = getattr(sys, "ps1", None)
-    locals = LocalsEnv(globals(), env = e)
-    sys.ps1 = locals
-    console = code.InteractiveConsole(locals=locals)
-    if cmd is None:
-        console.interact()
-    else:
-        console.push(cmd)
-    sys.ps1 = ps1
 
 # Example usage
 # for line in env.find(".", name='foo*', type='f') | env.grep("bar.*"):
