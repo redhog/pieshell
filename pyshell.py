@@ -267,10 +267,7 @@ class Redirect(Pipeline):
 
 
 class EnvScope(dict):
-    def __getattr__(self, name):
-        print "GETATTR", name
     def __getitem__(self, name):
-        print "GETITEM", name
         try:
             return dict.__getitem__(self, name)
         except KeyError:
