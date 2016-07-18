@@ -1,6 +1,6 @@
 # Examples
 
-    >>> from pyshell import *
+    >>> from pieshell import *
 
 Piping in and out of iterators and between commands:
 
@@ -31,11 +31,11 @@ Useless use of cat:
 Changing directory
 
     >>> env
-    140:/home/redhog/Projects/beta/pyshell >>>
+    140:/home/redhog/Projects/beta/pieshell >>>
     >>> env.cd('..')
     140:/home/redhog/Projects/beta >>>
-    >>> env.cd('pyshell/.git')
-    140:/home/redhog/Projects/beta/pyshell/.git >>>
+    >>> env.cd('pieshell/.git')
+    140:/home/redhog/Projects/beta/pieshell/.git >>>
     >>> env.ls
     branches
     COMMIT_EDITMSG

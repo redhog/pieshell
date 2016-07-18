@@ -4,7 +4,7 @@ from setuptools import setup
 
 
 setup(
-    name = "pyshell",
+    name = "pieshell",
     description = "Snakes on a shell.",
     keywords = "Python shell pipelines suprocess",
     install_requires = [],
@@ -12,11 +12,11 @@ setup(
     author = "Egil Moeller",
     author_email = "egil.moller@piratpartiet.se",
     license = "GPL",
-    url = "https://github.com/redhog/pyshell",
-    packages = ["pyshell"],
+    url = "https://github.com/redhog/pieshell",
+    packages = ["pieshell"],
     entry_points={
         'console_scripts': [
-            'pyshell = pyshell.shell:main',
+            'pieshell = pieshell.shell:main',
         ],
     }
 )
