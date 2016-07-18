@@ -271,7 +271,7 @@ class EnvScope(dict):
         try:
             return dict.__getitem__(self, name)
         except KeyError:
-            if hasattr(__builtins__, name):
+            if name in __builtins__:
                 raise
             return getattr(dict.__getitem__(self, 'env'), name)
 
