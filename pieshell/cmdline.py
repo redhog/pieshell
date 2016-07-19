@@ -258,14 +258,15 @@ class Redirect(Pipeline):
             sep = "<"
         elif self.filedescr == 'stdout':
             sep = ">"
-        return u"%s %s %s" % (self.first, sep, self.second)
+        return u"%s %s %s" % (self.pipeline.repr(), sep, self.file)
     def _run(self, stdin = None, stdout = None, stderr = None, **kw):
         if self.filedescr == 'stdin':
-            stdin = self.file
+            stdin = fd = os.open(self.file, os.O_RDONLY)
         elif self.filedescr == 'stdout':
-            stdout = self.file
+            stdout = fd = os.open(self.file, os.O_WRONLY | os.O_CREAT)
+        else:
+            assert False
         return self.pipeline._run(stdin=stdin, stdout=stdout, stderr=stderr, **kw)
-
 
 class EnvScope(dict):
     def __getitem__(self, name):
