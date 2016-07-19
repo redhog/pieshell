@@ -112,10 +112,14 @@ class Command(Pipeline):
     def __init__(self, env, name, arg = None, kw = None):
         self.env = env
         self.name = name
-        self.arg = arg
-        self.kw = kw
+        self.arg = arg or []
+        self.kw = kw or {}
     def __call__(self, *arg, **kw):
-        return type(self)(self.env, self.name, arg, kw)
+        nkw = dict(self.kw)
+        nkw.update(kw)
+        return type(self)(self.env, self.name, self.arg + list(arg), nkw)
+    def __getattr__(self, name):
+        return type(self)(self.env, self.name, self.arg + [name], self.kw)
     def repr(self):
         args = []
         if self.arg:
