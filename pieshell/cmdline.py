@@ -103,7 +103,8 @@ class Pipeline(ShellScript):
         return "\n".join(iter(self.run(stdout=subprocess.PIPE)))
     def __repr__(self):
         if self.env.interactive:
-            return unicode(self)
+            self.run(stdout=sys.stdout, stderr=sys.stderr).join()
+            return ""
         else:
             return self.repr()
 
