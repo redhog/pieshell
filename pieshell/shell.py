@@ -1,4 +1,6 @@
 from cmdline import *
+import sys
+import os
 
 # Example usage
 # for line in env.find(".", name='foo*', type='f') | env.grep("bar.*"):
@@ -78,6 +80,11 @@ pieshell --help
         test()
     else:
         with InteractiveConsole() as console:
+            console.push('import readline')
+            conf = os.path.expanduser('~/.config/pieshell')
+            if os.path.exists(conf):
+                with open(conf) as f:
+                    console.runsource(f.read(), conf)
             if "cmd" in kws:
                 console.push(kws["cmd"])
             elif args:
