@@ -2,6 +2,8 @@ import os
 import fcntl
 import select
 
+debug = False
+
 class IOHandlers(object):
     ioHandlers = {}
 
@@ -17,18 +19,21 @@ class IOHandlers(object):
     def register(cls, ioHandler):
         cls.poll.register(ioHandler.fd, ioHandler.events)
         cls.ioHandlers[ioHandler.fd] = ioHandler
+        if debug: print "REGISTER", ioHandler.fd, ioHandler.events, ioHandler
 
     @classmethod
     def deregister(cls, ioHandler):
         cls.poll.unregister(ioHandler.fd)
-        cls.ioHandlers[ioHandler.fd]
+        del cls.ioHandlers[ioHandler.fd]
         while len(cls.ioHandlers) and cls.cleanup:
             cls.cleanup.pop()()
+        if debug: print "DEREGISTER", ioHandler.fd, ioHandler
     
     @classmethod
     def handleIo(cls):
         while cls.ioHandlers:
             events = cls.poll.poll()
+            if debug: print "EVENTS", events
             assert events
             done = False
             for fd, event in events:
@@ -46,6 +51,7 @@ class IOHandler(object):
         pass
     def destroy(self):
         IOHandlers.deregister(self)
+        if debug: print "CLOSE DESTROY", self.fd, self
         os.close(self.fd)
 
 class OutputHandler(IOHandler):
@@ -64,8 +70,11 @@ class OutputHandler(IOHandler):
 class LineOutputHandler(OutputHandler):
     def handle_event(self, event):
         try:
-            os.write(self.fd, self.iter.next() + "\n")
+            val = self.iter.next()
+            os.write(self.fd, val + "\n")
+            if debug: print "WRITE", self.fd, val
         except StopIteration:
+            if debug: print "STOP ITERATION", self.fd
             self.destroy()
 
 class InputHandler(IOHandler):
