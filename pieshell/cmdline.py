@@ -103,7 +103,14 @@ class Pipeline(ShellScript):
         return "\n".join(iter(self.run(stdout=subprocess.PIPE)))
     def __repr__(self):
         if self.env.interactive:
-            self.run(stdout=sys.stdout, stderr=sys.stderr).join()
+            pipeline = self.run(stdout=sys.stdout.fileno(), stderr=sys.stderr.fileno())
+            try:
+                iterio.IOHandlers.handleIo()
+            except:
+                sys.last_traceback = sys.exc_info()[2]
+                import pdb
+                pdb.pm()
+            pipeline.join()
             return ""
         else:
             return self.repr()
@@ -162,10 +169,7 @@ class Command(Pipeline):
             args += ["--%s=%s" % (name, handle_named_pipe(value))
                      for (name, value) in self.kw.iteritems()]
 
-        res = subprocess.Popen(args, cwd=self.env.cwd, env=self.env.env, **kw)
-        for fd in inputs.itervalues():
-            if isinstance(fd, int):
-                os.close(fd)
+        res = subprocess.Popen(args, cwd=self.env.cwd, env=self.env.env, close_fds=True, **kw)
 
         for name, (direction, thing) in named_pipes.iteritems():
             fd = os.open(name, {'r': os.O_RDONLY,
