@@ -11,6 +11,7 @@ import sys
 import tempfile
 import uuid
 import code
+import threading
 
 try:
     MAXFD = os.sysconf("SC_OPEN_MAX")
@@ -67,6 +68,8 @@ class RunningPipeline(object):
         last.wait()
 
 class Pipeline(ShellScript):
+    interactive_state = threading.local()
+
     def __init__(self, env):
         self.env = env
 
@@ -107,8 +110,14 @@ class Pipeline(ShellScript):
         return iter(self.run(stdout=subprocess.PIPE))
     def __unicode__(self):
         return "\n".join(iter(self.run(stdout=subprocess.PIPE)))
+    def repr(self):
+        self.interactive_state.repr = True
+        try:
+            return repr(self)
+        finally:
+            self.interactive_state.repr = False
     def __repr__(self):
-        if self.env.interactive:
+        if self.env.interactive and not getattr(self.interactive_state, "repr", False):
             pipeline = self.run(stdout=sys.stdout.fileno(), stderr=sys.stderr.fileno())
             try:
                 iterio.IOHandlers.handleIo()
@@ -119,7 +128,7 @@ class Pipeline(ShellScript):
                 pdb.pm()
             return ""
         else:
-            return self.repr()
+            return self._repr()
 
 class Command(Pipeline):
     def __init__(self, env, name, arg = None, kw = None):
@@ -133,7 +142,7 @@ class Command(Pipeline):
         return type(self)(self.env, self.name, self.arg + list(arg), nkw)
     def __getattr__(self, name):
         return type(self)(self.env, self.name, self.arg + [name], self.kw)
-    def repr(self):
+    def _repr(self):
         args = []
         if self.arg:
             args += [repr(arg) for arg in self.arg]
@@ -240,7 +249,7 @@ class Function(Pipeline):
         self.arg = arg
         self.kw = kw
 
-    def repr(self):
+    def _repr(self):
         thing = self.function
         if isinstance(thing, types.FunctionType):
             args = []
@@ -249,8 +258,6 @@ class Function(Pipeline):
             if self.kw:
                 args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
             return u"%s.%s.%s(%s)" % (self.function.__module__, self.function.func_name, ','.join(args))
-        elif isinstance(thing, Pipeline):
-            return thing.repr()
         else:
             return repr(thing)
 
@@ -287,8 +294,8 @@ class Pipe(Pipeline):
         self.env = env
         self.src = src
         self.dst = dst
-    def repr(self):
-        return u"%s | %s" % (self.src.repr(), self.dst.repr())
+    def _repr(self):
+        return u"%s | %s" % (repr(self.src), repr(self.dst))
     def _run(self, stdin = None, stdout = None, stderr = None, **kw):
         src = self.src._run(stdin=stdin, stdout=subprocess.PIPE, stderr=stderr, **kw)
         dst = self.dst._run(stdin=src[-1].pipes['stdout'], stdout=stdout, stderr=stderr, **kw)
@@ -302,8 +309,8 @@ class Pipe(Pipeline):
 #     def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
 #         for item in [self.first, self.second]:
 #             item.run(stdin=stdin, stdout=stdout, stderr=stderr, **kw).join()
-#     def  repr(self):
-#         return u"%s + %s" % (self.first, self.second)
+#     def _repr(self):
+#         return u"%s + %s" % (repr(self.first), repr(self.second))
 
 class Redirect(Pipeline):
     def __init__(self, env, pipeline, file, filedescr):
@@ -311,12 +318,12 @@ class Redirect(Pipeline):
         self.pipeline = pipeline
         self.file = file
         self.filedescr = filedescr
-    def  repr(self):
+    def _repr(self):
         if self.filedescr == 'stdin':
             sep = "<"
         elif self.filedescr == 'stdout':
             sep = ">"
-        return u"%s %s %s" % (self.pipeline.repr(), sep, self.file)
+        return u"%s %s %s" % (repr(self.pipeline), sep, self.file)
     def _run(self, stdin = None, stdout = None, stderr = None, **kw):
         if self.filedescr == 'stdin':
             stdin = fd = os.open(self.file, os.O_RDONLY)
