@@ -307,9 +307,10 @@ class Command(Pipeline):
 
         for name, (direction, thing) in named_pipes.iteritems():
             if direction == 'w':
-                thing._run([Redirect("stdout", name)])
+                redirect = Redirect("stdout", name)
             else:
-                thing._run([Redirect("stdin", name)])
+                redirect = Redirect("stdin", name)
+            thing._run(Redirects(redirect))
 
         res.redirects = redirects
 
