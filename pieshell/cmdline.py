@@ -12,6 +12,11 @@ import tempfile
 import uuid
 import code
 
+try:
+    MAXFD = os.sysconf("SC_OPEN_MAX")
+except:
+    MAXFD = 256
+
 class ShellScript(object):
     pass
 
@@ -77,6 +82,7 @@ class Pipeline(ShellScript):
                     pipes[key], inputs[key] = w, r
                 else:
                     inputs[key], pipes[key] = w, r
+                print "OPEN PIPE", inputs[key], pipes[key], key
         return arg, kw, inputs, pipes
     def _coerce(self, thing):
         if isinstance(thing, Pipeline):
@@ -106,11 +112,11 @@ class Pipeline(ShellScript):
             pipeline = self.run(stdout=sys.stdout.fileno(), stderr=sys.stderr.fileno())
             try:
                 iterio.IOHandlers.handleIo()
+                pipeline.join()
             except:
                 sys.last_traceback = sys.exc_info()[2]
                 import pdb
                 pdb.pm()
-            pipeline.join()
             return ""
         else:
             return self.repr()
@@ -134,20 +140,43 @@ class Command(Pipeline):
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
         return u"%s.%s(%s)" % (self.env, self.name, ', '.join(args))
+    def _close_fds(self):
+        if hasattr(os, 'closerange'):
+            os.closerange(3, MAXFD)
+        else:
+            for i in xrange(3, MAXFD):
+                try:
+                    os.close(i)
+                except:
+                    pass
+    def _child(self, *args, **kw):
+        for key in ("stdin", "stdout", "stderr"):
+            fd = kw.get(key, None)
+            if fd is not None:
+                dst = {"stdin": 0, "stdout": 1, "stderr": 2}[key]
+                if fd != dst:
+                    os.dup2(fd, dst)
+        self._close_fds()
+
+        os.chdir(self.env.cwd)
+        os.execvpe(args[0], args, self.env.env)
+        os._exit(-1)
+
     def _run(self, *args, **kw):
-        _, kw, inputs, pipes = self.setup_run_pipes(*args, **kw)
+        args, kw, inputs, pipes = self.setup_run_pipes(*args, **kw)
         kw.update(inputs)
+        print "Running %s with inputs=%s, pipes=%s" % (self.repr(), inputs, pipes)
 
         named_pipes = {}
         def handle_named_pipe(thing):
-            if hasattr(thing, "__iter__") or hasattr(thing, "next"):
-                thing = Function(self.env, thing)
-                direction = "w"
+            if isinstance(thing, Pipeline):
+                direction = "r"
             elif isinstance(thing, types.FunctionType):
                 thing = Function(thing)
                 direction = "r"
-            elif isinstance(thing, Pipeline):
-                direction = "r"
+            elif hasattr(thing, "__iter__") or hasattr(thing, "next"):
+                thing = Function(self.env, thing)
+                direction = "w"
             else:
                 return thing
             name = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
@@ -169,15 +198,34 @@ class Command(Pipeline):
             args += ["--%s=%s" % (name, handle_named_pipe(value))
                      for (name, value) in self.kw.iteritems()]
 
-        res = subprocess.Popen(args, cwd=self.env.cwd, env=self.env.env, close_fds=True, **kw)
+        pid = os.fork()
+        if pid == 0:
+            self._child(*args, **kw)
+
+        class Proc(object):
+            def __init__(self, pid):
+                self.pid = pid
+            def wait(self):
+                os.waitpid(self.pid, 0)
+        res = Proc(pid)
+        
+        # res = subprocess.Popen(args, cwd=self.env.cwd, env=self.env.env, **kw)
+
+        for fd in inputs.itervalues():
+            if isinstance(fd, int) and fd > 2:
+                print "CLOSE SUBPROCESS", fd
+                os.close(fd)
 
         for name, (direction, thing) in named_pipes.iteritems():
             fd = os.open(name, {'r': os.O_RDONLY,
                                 'w': os.O_WRONLY}[direction])
+            print "OPEN NAMED", name, fd, direction
             if direction == 'w':
-                thing.run(stdout=fd)
+                print "Running %s with stdout=%s as named %s" % (thing.repr(), fd, name)
+                thing._run(stdout=fd)
             else:
-                thing.run(stdin=fd)
+                print "Running %s with stdin=%s as named %s" % (thing.repr(), fd, name)
+                thing._run(stdin=fd)
 
         res.pipes = pipes
         for fd in pipes.itervalues():
@@ -201,6 +249,8 @@ class Function(Pipeline):
             if self.kw:
                 args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
             return u"%s.%s.%s(%s)" % (self.function.__module__, self.function.func_name, ','.join(args))
+        elif isinstance(thing, Pipeline):
+            return thing.repr()
         else:
             return repr(thing)
 
@@ -274,6 +324,7 @@ class Redirect(Pipeline):
             stdout = fd = os.open(self.file, os.O_WRONLY | os.O_CREAT)
         else:
             assert False
+        print "OPEN REDIRECT", fd, self.filedescr
         return self.pipeline._run(stdin=stdin, stdout=stdout, stderr=stderr, **kw)
 
 class EnvScope(dict):
