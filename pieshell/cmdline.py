@@ -120,8 +120,12 @@ class Pipeline(ShellScript):
         if self.env.interactive and not getattr(self.interactive_state, "repr", False):
             pipeline = self.run(stdout=sys.stdout.fileno(), stderr=sys.stderr.fileno())
             try:
-                iterio.IOHandlers.handleIo()
-                pipeline.join()
+                iterio.IOHandlers.delay_cleanup()
+                try:
+                    iterio.IOHandlers.handleIo()
+                    pipeline.join()
+                finally:
+                    iterio.IOHandlers.perform_cleanup()
             except:
                 sys.last_traceback = sys.exc_info()[2]
                 import pdb

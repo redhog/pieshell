@@ -6,6 +6,7 @@ debug = False
 
 class IOHandlers(object):
     ioHandlers = {}
+    delay = 0
 
     poll = select.poll()
 
@@ -16,17 +17,31 @@ class IOHandlers(object):
         cls.cleanup.append(cleanup)
 
     @classmethod
+    def delay_cleanup(cls):
+        cls.delay += 1
+
+    @classmethod
+    def perform_cleanup(cls):
+        if cls.delay > 0:
+            cls.delay -= 1
+        cls._do_cleanup()
+
+    @classmethod
     def register(cls, ioHandler):
         cls.poll.register(ioHandler.fd, ioHandler.events)
         cls.ioHandlers[ioHandler.fd] = ioHandler
         if debug: print "REGISTER", ioHandler.fd, ioHandler.events, ioHandler
 
+    @classmethod    
+    def _do_cleanup(cls):
+        while cls.delay == 0 and not len(cls.ioHandlers) and cls.cleanup:
+            cls.cleanup.pop()()
+
     @classmethod
     def deregister(cls, ioHandler):
         cls.poll.unregister(ioHandler.fd)
         del cls.ioHandlers[ioHandler.fd]
-        while not len(cls.ioHandlers) and cls.cleanup:
-            cls.cleanup.pop()()
+        cls._do_cleanup()
         if debug: print "DEREGISTER", ioHandler.fd, ioHandler
     
     @classmethod
