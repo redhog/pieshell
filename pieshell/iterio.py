@@ -25,7 +25,7 @@ class IOHandlers(object):
     def deregister(cls, ioHandler):
         cls.poll.unregister(ioHandler.fd)
         del cls.ioHandlers[ioHandler.fd]
-        while len(cls.ioHandlers) and cls.cleanup:
+        while not len(cls.ioHandlers) and cls.cleanup:
             cls.cleanup.pop()()
         if debug: print "DEREGISTER", ioHandler.fd, ioHandler
     
