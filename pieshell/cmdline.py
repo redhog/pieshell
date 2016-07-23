@@ -16,7 +16,7 @@ try:
 except:
     MAXFD = 256
 
-debug = False
+debug = True
 
 class Environment(object):
     def __init__(self, cwd = None, env = None, interactive = False):
@@ -91,7 +91,9 @@ class Redirect(object):
     def open(self):
         source = self.source
         if not isinstance(source, int):
+            print "%s: Opening %s in %s for %s" % (os.getpid(), self.source, self.flag, self.fd)
             source = os.open(source, self.flag, self.mode)
+            print "%s: Done opening %s in %s for %s" % (os.getpid(), self.source, self.flag, self.fd)
         return source
     def close_source_fd(self):
         # FIXME: Only close source fds that come from pipes instead of this hack...
@@ -264,63 +266,64 @@ class Command(Pipeline):
         os.execvpe(args[0], args, self.env.env)
         os._exit(-1)
 
+    def handle_named_pipe(self, thing, indentation):
+        if isinstance(thing, Pipeline):
+            direction = "w"
+        elif isinstance(thing, types.FunctionType):
+            thing = Function(thing)
+            direction = "r"
+        elif hasattr(thing, "__iter__") or hasattr(thing, "next"):
+            thing = Function(self.env, thing)
+            direction = "w"
+        else:
+            # Not a named pipe item, just a string
+            return thing
+
+        if isinstance(thing, Function):
+            if direction == "w":
+                thing = thing | self.env.cat
+            else:
+                thing = self.env.cat | thing
+
+        name = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
+        os.mkfifo(name)
+
+
+        def clean_named_pipe():
+            os.unlink(name)
+
+        iterio.IOHandlers.register_cleanup(clean_named_pipe)
+
+        if direction == 'w':
+            redirect = Redirect("stdout", name)
+        else:
+            redirect = Redirect("stdin", name)
+        thing._run(Redirects(redirect), indentation + "  ")
+
+        return name
+
     def _run(self, redirects, indentation = ""):
         redirects = redirects.make_pipes()
         if debug: print indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects))
 
-        named_pipes = {}
-        def handle_named_pipe(thing):
-            if isinstance(thing, Pipeline):
-                direction = "w"
-            elif isinstance(thing, types.FunctionType):
-                thing = Function(thing)
-                direction = "r"
-            elif hasattr(thing, "__iter__") or hasattr(thing, "next"):
-                thing = Function(self.env, thing)
-                direction = "w"
-            else:
-                # Not a named pipe item, just a string
-                return thing
-
-            if isinstance(thing, Function):
-                if direction == "w":
-                    thing = thing | self.env.cat
-                else:
-                    thing = self.env.cat | thing
-
-            name = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
-            os.mkfifo(name)
-
-            named_pipes[name] = (direction, thing)
-            
-            def clean_named_pipe():
-                os.unlink(name)
-
-            iterio.IOHandlers.register_cleanup(clean_named_pipe)
-
-            return name
-
         args = [self.name]
         if self.arg:
-            args += [handle_named_pipe(item) for item in self.arg]
+            args += [self.handle_named_pipe(item, indentation) for item in self.arg]
         if self.kw:
-            args += ["--%s=%s" % (name, handle_named_pipe(value))
+            args += ["--%s=%s" % (name, handle_named_pipe(value, indentation))
                      for (name, value) in self.kw.iteritems()]
+
+        if debug: print indentation + "  Command line: %s" % (' '.join(repr(arg) for arg in args),)
 
         pid = os.fork()
         if pid == 0:
             self._child(redirects, args)
+            # If we ever get to here, all is lost...
+            sys._exit(-1)
 
         res = RunningProcess(pid)
 
         redirects.close_source_fds()
-
-        for name, (direction, thing) in named_pipes.iteritems():
-            if direction == 'w':
-                redirect = Redirect("stdout", name)
-            else:
-                redirect = Redirect("stdin", name)
-            thing._run(Redirects(redirect), indentation + "  ")
 
         res.redirects = redirects
 
