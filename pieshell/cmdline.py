@@ -64,6 +64,13 @@ class RunningPipeline(object):
         last = self.processes[-1]
         last.wait()
 
+class RunningProcess(object):
+    def __init__(self, pid):
+        self.pid = pid
+    def wait(self):
+        os.waitpid(self.pid, 0)
+
+
 class PIPE(object): pass
 
 class Redirect(object):
@@ -257,9 +264,9 @@ class Command(Pipeline):
         os.execvpe(args[0], args, self.env.env)
         os._exit(-1)
 
-    def _run(self, redirects):
+    def _run(self, redirects, indentation = ""):
         redirects = redirects.make_pipes()
-        if debug: print "Running %s with %s" % (Pipeline.repr(self), repr(redirects))
+        if debug: print indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects))
 
         named_pipes = {}
         def handle_named_pipe(thing):
@@ -272,7 +279,15 @@ class Command(Pipeline):
                 thing = Function(self.env, thing)
                 direction = "w"
             else:
+                # Not a named pipe item, just a string
                 return thing
+
+            if isinstance(thing, Function):
+                if direction == "w":
+                    thing = thing | self.env.cat
+                else:
+                    thing = self.env.cat | thing
+
             name = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
             os.mkfifo(name)
 
@@ -296,12 +311,7 @@ class Command(Pipeline):
         if pid == 0:
             self._child(redirects, args)
 
-        class Proc(object):
-            def __init__(self, pid):
-                self.pid = pid
-            def wait(self):
-                os.waitpid(self.pid, 0)
-        res = Proc(pid)
+        res = RunningProcess(pid)
 
         redirects.close_source_fds()
 
@@ -310,7 +320,7 @@ class Command(Pipeline):
                 redirect = Redirect("stdout", name)
             else:
                 redirect = Redirect("stdin", name)
-            thing._run(Redirects(redirect))
+            thing._run(Redirects(redirect), indentation + "  ")
 
         res.redirects = redirects
 
@@ -335,9 +345,9 @@ class Function(Pipeline):
         else:
             return repr(thing)
 
-    def _run(self, redirects):
+    def _run(self, redirects, indentation = ""):
         redirects = redirects.make_pipes()
-        if debug: print "Running %s with %s" % (Pipeline.repr(self), repr(redirects))
+        if debug: print indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects))
 
         def convert(x):
             if isinstance(x, str):
@@ -371,10 +381,10 @@ class Pipe(Pipeline):
         self.dst = dst
     def _repr(self):
         return u"%s | %s" % (repr(self.src), repr(self.dst))
-    def _run(self, redirects):
-        if debug: print "Running %s with %s" % (Pipeline.repr(self), repr(redirects))
-        src = self.src._run(Redirects(redirects).redirect("stdout", PIPE))
-        dst = self.dst._run(Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe))
+    def _run(self, redirects, indentation = ""):
+        if debug: print indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects))
+        src = self.src._run(Redirects(redirects).redirect("stdout", PIPE), indentation + "  ")
+        dst = self.dst._run(Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), indentation + "  ")
         return src + dst
 
 # class Group(Pipeline):
@@ -400,15 +410,11 @@ class CmdRedirect(Pipeline):
         elif self.filedescr == 'stdout':
             sep = ">"
         return u"%s %s %s" % (repr(self.pipeline), sep, self.file)
-    def _run(self, *arg, **kw):
-        if debug: print "Running %s with %s=%s, %s, %s" % (Pipeline.repr(self), self.filedescr, Pipeline.repr(arg), Pipeline.repr(kw))
-        if self.filedescr == 'stdin':
-            stdin = fd = os.open(self.file, os.O_RDONLY)
-        elif self.filedescr == 'stdout':
-            stdout = fd = os.open(self.file, os.O_WRONLY | os.O_CREAT)
-        else:
-            assert False
-        return self.pipeline._run(stdin=stdin, stdout=stdout, stderr=stderr, **kw)
+    def _run(self, redirects, indentation = ""):
+        if debug: print indentation + "Running %s with %s and %s=%s" % (Pipeline.repr(self), repr(redirects), self.filedescr, repr(self.file))
+        redirects = Redirects(redirects)
+        redirects.redirect(self.filedescr, self.file)
+        return self.pipeline._run(redirects, indentation + "  ")
 
 class EnvScope(dict):
     def __getitem__(self, name):
