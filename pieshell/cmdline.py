@@ -3,30 +3,20 @@
 import os
 import fcntl
 import types
-import iterio
-import pipe
 import sys
 import tempfile
 import uuid
 import code
 import threading
 
+from . import iterio
+from . import redir
+from . import log
+
 try:
     MAXFD = os.sysconf("SC_OPEN_MAX")
 except:
     MAXFD = 256
-
-debug = {
-    "all": False,
-    "fd": False,
-    "cmd": False
-    }
-
-logfd = 1023
-os.dup2(sys.stdout.fileno(), logfd)
-def log(msg, category="misc"):
-    if not debug.get(category, False) and not debug.get("all", False): return
-    os.write(logfd, "%s: %s\n" % (os.getpid(), msg))
 
 class Environment(object):
     def __init__(self, cwd = None, env = None, interactive = False):
@@ -81,146 +71,6 @@ class RunningProcess(object):
         os.waitpid(self.pid, 0)
 
 
-class PIPE(object): pass
-
-class Redirect(object):
-    fd_names = {"stdin": 0, "stdout": 1, "stderr": 2}
-    fd_flags = {0: os.O_RDONLY, 1: os.O_WRONLY, 2: os.O_WRONLY}
-    def __init__(self, fd, source = None, flag = None, mode = 0777, pipe=None):
-        if isinstance(fd, Redirect):
-            fd, source, flag, mode, pipe = fd.fd, fd.source, fd.flag, fd.mode, fd.pipe
-        if not isinstance(fd, int):
-            fd = self.fd_names[fd]
-        if flag is None:
-            flag = self.fd_flags[fd]
-        self.fd = fd
-        self.source = source
-        self.flag = flag
-        self.mode = mode
-        self.pipe = pipe
-    def open(self):
-        source = self.source
-        if not isinstance(source, int):
-            log("Opening %s in %s for %s" % (self.source, self.flag, self.fd), "fd")
-            source = os.open(source, self.flag, self.mode)
-            log("Done opening %s in %s for %s" % (self.source, self.flag, self.fd), "fd")
-        return source
-    def close_source_fd(self):
-        # FIXME: Only close source fds that come from pipes instead of this hack...
-        if isinstance(self.source, int) and self.source > 2:
-            os.close(self.source)
-    def perform(self):
-        source = self.open()
-        assert source != self.fd
-        log("perform dup2(%s, %s)" % (source, self.fd), "fd")
-        os.dup2(source, self.fd)
-        log("perform close(%s)" % (source), "fd")
-        os.close(source)
-    def move(self, fd):
-        self = Redirect(self)
-        if isinstance(self.source, int):
-            log("move dup2(%s, %s)" % (self.source, fd), "fd")
-            os.dup2(self.source, fd)
-            log("move close(%s)" % (self.source), "fd")
-            os.close(self.source)
-            self.source = fd
-        return self
-    def make_pipe(self):
-        if self.source is not PIPE: return self
-        rfd, wfd = pipe.pipe_cloexec()
-        if self.flag & os.O_RDONLY:
-            pipefd, sourcefd = wfd, rfd
-        else:
-            sourcefd, pipefd = wfd, rfd
-        return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
-    def __repr__(self):
-        flagmode = []
-        if self.flag not in (os.O_RDONLY, os.O_WRONLY):
-            flagmode.append("f=%s" % self.flag)
-        if self.mode != 0777:
-            flagmode.append("m=%s" % self.mode)
-        if flagmode:
-            flagmode = "[" + ",".join(flagmode) + "]"
-        else:
-            flagmode = ""
-        if self.flag & os.O_RDONLY:
-            arrow = "<-%s-" % flagmode
-        else:
-            arrow = "-%s->" % flagmode
-        items = [str(self.fd), arrow, str(self.source)]
-        if self.pipe is not None:
-            items.append("pipe=%s" % self.pipe)
-        return " ".join(items)
-
-class Redirects(object):
-    def __init__(self, *redirects, **kw):
-        self.redirects = {}
-        if redirects and isinstance(redirects[0], Redirects):
-            for redirect in redirects[0].redirects.values():
-                self.register(Redirect(redirect))
-        else:
-            if kw.get("defaults", True):
-                self.redirect(0, 0)
-                self.redirect(1, 1)
-                self.redirect(2, 2)
-            for redirect in redirects:
-                self.register(redirect)
-    def register(self, redirect):
-        if not isinstance(redirect, Redirect):
-            redirect = Redirect(redirect)
-        if redirect.source is None:
-            del self.redirects[redirect.fd]
-        else:
-            self.redirects[redirect.fd] = redirect
-        return self
-    def redirect(self, *arg, **kw):
-        self.register(Redirect(*arg, **kw))
-        return self
-    def find_free_fd(self):
-        return max([redirect.fd
-                    for redirect in self.redirects.itervalues()]
-                   + [redirect.source
-                      for redirect in self.redirects.itervalues()
-                      if isinstance(redirect.source, int)]
-                   + [2]) + 1
-    def make_pipes(self):
-        return type(self)(*[redirect.make_pipe()
-                            for redirect in self.redirects.itervalues()])
-    def move_existing_fds(self):
-        new_fd = self.find_free_fd()
-        redirects = []
-        for redirect in self.redirects.itervalues():
-            redirects.append(redirect.move(new_fd))
-            new_fd += 1
-        log("After move: %s" % repr(Redirects(*redirects, defaults=False)), "fd")
-        return redirects
-    def perform(self):
-        try:
-            for redirect in self.move_existing_fds():
-                redirect.perform()
-            self.close_other_fds()
-        except Exception, e:
-            import traceback
-            log(e, "fd")
-            log(traceback.format_exc(), "fd")
-    def close_other_fds(self):
-        # FIXME: Use os.closerange if available
-        for i in xrange(0, MAXFD):
-            if i in self.redirects: continue
-            if i == logfd: continue
-            try:
-                os.close(i)
-            except:
-                pass
-    def close_source_fds(self):
-        for redirect in self.redirects.itervalues():
-            redirect.close_source_fd()
-    def __getattr__(self, name):
-        return self.redirects[Redirect.fd_names[name]]
-    def __repr__(self):
-        redirects = self.redirects.values()
-        redirects.sort(lambda a, b: cmp(a.fd, b.fd))
-        return ", ".join(repr(redirect) for redirect in redirects)
 
 class Pipeline(object):
     interactive_state = threading.local()
@@ -244,13 +94,13 @@ class Pipeline(object):
     def __add__(self, other):
         return Group(self.env, self, other)
     def run(self, redirects = []):
-        if not isinstance(redirects, Redirects):
-            redirects = Redirects(*redirects)
+        if not isinstance(redirects, redir.Redirects):
+            redirects = redir.Redirects(*redirects)
         return RunningPipeline(self._run(redirects))
     def __iter__(self):
-        return iter(self.run([Redirect("stdout", PIPE)]))
+        return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
     def __unicode__(self):
-        return "\n".join(iter(self.run([Redirect("stdout", PIPE)])))
+        return "\n".join(iter(self.run([redir.Redirect("stdout", redir.PIPE)])))
     @classmethod
     def repr(cls, obj):
         cls.interactive_state.repr = True
@@ -323,7 +173,7 @@ class Command(Pipeline):
             # Not a named pipe item, just a string
             return thing
       
-        arg_pipe = thing._run(Redirects(Redirect(direction, PIPE)), indentation + "  ")
+        arg_pipe = thing._run(redir.Redirects(redir.Redirect(direction, redir.PIPE)), indentation + "  ")
 
         fd = redirects.find_free_fd()
         redirects.redirect(
@@ -335,7 +185,7 @@ class Command(Pipeline):
 
     def _run(self, redirects, indentation = ""):
         redirects = redirects.make_pipes()
-        log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
+        log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
 
         args = [self.name]
         if self.arg:
@@ -344,7 +194,7 @@ class Command(Pipeline):
             args += ["--%s=%s" % (name, self.handle_arg_pipes(value, redirects, indentation))
                      for (name, value) in self.kw.iteritems()]
 
-        log(indentation + "  Command line %s witth %s" % (' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
+        log.log(indentation + "  Command line %s witth %s" % (' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
 
         pid = os.fork()
         if pid == 0:
@@ -381,7 +231,7 @@ class Function(Pipeline):
 
     def _run(self, redirects, indentation = ""):
         redirects = redirects.make_pipes()
-        log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
+        log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
 
         def convert(x):
             if isinstance(x, str):
@@ -416,9 +266,9 @@ class Pipe(Pipeline):
     def _repr(self):
         return u"%s | %s" % (repr(self.src), repr(self.dst))
     def _run(self, redirects, indentation = ""):
-        log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
-        src = self.src._run(Redirects(redirects).redirect("stdout", PIPE), indentation + "  ")
-        dst = self.dst._run(Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), indentation + "  ")
+        log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
+        src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), indentation + "  ")
+        dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), indentation + "  ")
         return src + dst
 
 # class Group(Pipeline):
@@ -445,8 +295,8 @@ class CmdRedirect(Pipeline):
             sep = ">"
         return u"%s %s %s" % (repr(self.pipeline), sep, self.file)
     def _run(self, redirects, indentation = ""):
-        log(indentation + "Running %s with %s and %s=%s" % (Pipeline.repr(self), repr(redirects), self.filedescr, repr(self.file)), "cmd")
-        redirects = Redirects(redirects)
+        log.log(indentation + "Running %s with %s and %s=%s" % (Pipeline.repr(self), repr(redirects), self.filedescr, repr(self.file)), "cmd")
+        redirects = redir.Redirects(redirects)
         redirects.redirect(self.filedescr, self.file)
         return self.pipeline._run(redirects, indentation + "  ")
 
