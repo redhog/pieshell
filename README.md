@@ -45,9 +45,9 @@ Changing directory is done using the command cd just like in any shell
 
 ## Redirects
 
-    Standrad out and standard in of a pipeline can be redirected to a
-    file by piping to or from a string (the filename). As a special
-    case, None is a short hand for "/dev/null"
+Standard out and standard in of a pipeline can be redirected to a file
+by piping to or from a string (the filename). As a special case, None
+is a short hand for "/dev/null"
 
     140:/home/redhog/Projects/beta/pieshell >>> ls | "foo"
 
@@ -65,6 +65,20 @@ Changing directory is done using the command cd just like in any shell
 
     140:/home/redhog/Projects/beta/pieshell >>> ls | None
 
+Redirects can also be made with a more explicit syntax that allows
+redirecting other file descriptors than stdin and stdout:
+
+    139:/home/redhog/Projects/beta/pieshell >>> cat | Redirect("stdin", "foo") | Redirect("stdout", "bar")
+
+The constructor for redirect takes the following arguments:
+
+    Redirect(fd, source, flag=None, mode=0777)
+
+fd can be either an int, or one of "stdin", "stdout" and "stderr.
+source is either a string filename, or an int file descriptor. flag
+and mode have the same semantics as for os.open(). Flags do not have
+to be given for stdin, stdout and stderr / fd 0, 1 and 2 and defaults
+to os.O_RDONLY or os.O_RDONLY | os.O_CREAT.
 
 ## Interfacing between python functions and shell commands
 

@@ -392,7 +392,8 @@ class InteractiveConsole(object):
     def __enter__(self):
         e = env(interactive=True)
         self.ps1 = getattr(sys, "ps1", None)
-        scope = EnvScope(globals(), env = e)
+        import pieshell
+        scope = EnvScope(pieshell.__dict__, env = e)
         sys.ps1 = scope
         return code.InteractiveConsole(locals=scope)
 
