@@ -10,11 +10,20 @@ import threading
 from . import pipe
 from . import log
 
+try:
+    MAXFD = os.sysconf("SC_OPEN_MAX")
+except:
+    MAXFD = 256
+
 class PIPE(object): pass
 
 class Redirect(object):
     fd_names = {"stdin": 0, "stdout": 1, "stderr": 2}
-    fd_flags = {0: os.O_RDONLY, 1: os.O_WRONLY, 2: os.O_WRONLY}
+    fd_flags = {
+        0: os.O_RDONLY,
+        1: os.O_WRONLY | os.O_CREAT,
+        2: os.O_WRONLY | os.O_CREAT
+        }
     def __init__(self, fd, source = None, flag = None, mode = 0777, pipe=None):
         if isinstance(fd, Redirect):
             fd, source, flag, mode, pipe = fd.fd, fd.source, fd.flag, fd.mode, fd.pipe
@@ -105,6 +114,11 @@ class Redirects(object):
     def redirect(self, *arg, **kw):
         self.register(Redirect(*arg, **kw))
         return self
+    def merge(self, other):
+        self = Redirects(other)
+        for redirect in other.redirects.itervalues():
+            self.register(redirect)
+        return self
     def find_free_fd(self):
         return max([redirect.fd
                     for redirect in self.redirects.itervalues()]
@@ -136,7 +150,7 @@ class Redirects(object):
         # FIXME: Use os.closerange if available
         for i in xrange(0, MAXFD):
             if i in self.redirects: continue
-            if i == logfd: continue
+            if i == log.logfd: continue
             try:
                 os.close(i)
             except:

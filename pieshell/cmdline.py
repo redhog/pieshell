@@ -13,11 +13,6 @@ from . import iterio
 from . import redir
 from . import log
 
-try:
-    MAXFD = os.sysconf("SC_OPEN_MAX")
-except:
-    MAXFD = 256
-
 class Environment(object):
     """An environment within which a command or pipeline can run. The
     environment consists of a current working directory and a set of
@@ -115,10 +110,14 @@ class Pipeline(DescribableObject):
         return Pipe(self.env, self, self._coerce(other))
     def __gt__(self, file):
         """Redirects the standard out of the pipeline to a file."""
-        return CmdRedirect(self.env, self, file, "stdout")
+        return CmdRedirect(
+            self.env, self,
+            redir.Redirects(redir.Redirect("stdout", file), defaults=False))
     def __lt__(self, file):
         """Redirects the standard in of the pipeline from a file."""
-        return CmdRedirect(self.env, self, file, "stdin")
+        return CmdRedirect(
+            self.env, self,
+            redir.Redirects(redir.Redirect("stdin", file), defaults=False))
     def __add__(self, other):
         return Group(self.env, self, other)
     def run(self, redirects = []):
@@ -217,15 +216,6 @@ class Command(Pipeline):
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
         return u"%s.%s(%s)" % (self.env, self.name, ', '.join(args))
-    def _close_fds(self):
-        if hasattr(os, 'closerange'):
-            os.closerange(3, MAXFD)
-        else:
-            for i in xrange(3, MAXFD):
-                try:
-                    os.close(i)
-                except:
-                    pass
     def _child(self, redirects, args):
         redirects.perform()
         os.chdir(self.env.cwd)
@@ -367,22 +357,15 @@ class Pipe(Pipeline):
 #         return u"%s + %s" % (repr(self.first), repr(self.second))
 
 class CmdRedirect(Pipeline):
-    def __init__(self, env, pipeline, file, filedescr):
+    def __init__(self, env, pipeline, redirects):
         self.env = env
         self.pipeline = pipeline
-        self.file = file
-        self.filedescr = filedescr
+        self.redirects = redirects
     def _repr(self):
-        if self.filedescr == 'stdin':
-            sep = "<"
-        elif self.filedescr == 'stdout':
-            sep = ">"
-        return u"%s %s %s" % (repr(self.pipeline), sep, self.file)
+        return u"%s with %s" % (Pipeline.repr(self.pipeline), repr(self.redirects))
     def _run(self, redirects, indentation = ""):
-        log.log(indentation + "Running %s with %s and %s=%s" % (Pipeline.repr(self), repr(redirects), self.filedescr, repr(self.file)), "cmd")
-        redirects = redir.Redirects(redirects)
-        redirects.redirect(self.filedescr, self.file)
-        return self.pipeline._run(redirects, indentation + "  ")
+        log.log(indentation + "Running [%s] with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
+        return self.pipeline._run(redirects.merge(self.redirects), indentation + "  ")
 
 class EnvScope(dict):
     def __getitem__(self, name):
