@@ -19,6 +19,20 @@ except:
     MAXFD = 256
 
 class Environment(object):
+    """An environment within which a command or pipeline can run. The
+    environment consists of a current working directory and a set of
+    environment variables and other configuration.
+
+    Commands within the environment can be convienently created using
+    the
+
+        env.COMMAND_NAME
+
+    as a short hand for
+
+        Command(env, "COMMAND_NAME")
+    """
+
     def __init__(self, cwd = None, env = None, interactive = False):
         self.cwd = os.getcwd()
         if cwd is not None:
@@ -79,6 +93,8 @@ class DescribableObject(type):
         pass
 
 class Pipeline(DescribableObject):
+    """Abstract base class for all pipelines"""
+
     interactive_state = threading.local()
     def __init__(self, env):
         self.env = env
@@ -90,31 +106,47 @@ class Pipeline(DescribableObject):
         else:
             raise ValueError(type(thing))
     def __ror__(self, other):
+        """Pipes the standard out of a pipeline into the standrad in
+        of this pipeline."""
         return Pipe(self.env, self._coerce(other), self)
     def __or__(self, other):
+        """Pipes the standard out of the pipeline into the standrad in
+        of another pipeline."""
         return Pipe(self.env, self, self._coerce(other))
     def __gt__(self, file):
+        """Redirects the standard out of the pipeline to a file."""
         return CmdRedirect(self.env, self, file, "stdout")
     def __lt__(self, file):
+        """Redirects the standard in of the pipeline from a file."""
         return CmdRedirect(self.env, self, file, "stdin")
     def __add__(self, other):
         return Group(self.env, self, other)
     def run(self, redirects = []):
+        """Runs the pipelines with the specified redirects and returns
+        a RunningPipeline instance."""
         if not isinstance(redirects, redir.Redirects):
             redirects = redir.Redirects(*redirects)
         return RunningPipeline(self._run(redirects))
     def __iter__(self):
+        """Runs the pipeline and iterates over its standrad output lines."""
         return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
     def __unicode__(self):
+        """Runs the pipeline and returns its standrad out output as a string"""
         return "\n".join(iter(self.run([redir.Redirect("stdout", redir.PIPE)])))
     @classmethod
     def repr(cls, obj):
+        """Returns a string representation of the pipeline"""
         cls.interactive_state.repr = True
         try:
             return repr(obj)
         finally:
             cls.interactive_state.repr = False
     def __repr__(self):
+        """Runs the command if the environment has interactive=True,
+        sending the output to standard out. If the environment is
+        non-interactive, returns a string representation of the
+        pipeline without running it."""
+
         if self.env.interactive and not getattr(self.interactive_state, "repr", False):
             pipeline = self.run()
             try:
@@ -145,16 +177,38 @@ class Pipeline(DescribableObject):
         return ""
 
 class Command(Pipeline):
+    """Runs an external program with the specified arguments.
+    Arguments can be sent in either list or dictionary form.
+    Dictionary arguments are converted into --key=value. Note that
+    this short hand syntax might not work for all programs, as some
+    expect "--key value", or even "-key=value" (e.g. find).
+    """
     def __init__(self, env, name, arg = None, kw = None):
         self.env = env
         self.name = name
         self.arg = arg or []
         self.kw = kw or {}
     def __call__(self, *arg, **kw):
+        """Appends a set of arguments to the argument list
+
+            env.mycommand("input_filename", verbose='3', destination="output")
+
+        is equivalent to
+
+            Command(env, "mycommand", ["input_filename", "--verbose=3", "--destination=output"])
+        """
         nkw = dict(self.kw)
         nkw.update(kw)
         return type(self)(self.env, self.name, self.arg + list(arg), nkw)
     def __getattr__(self, name):
+        """Append a name to the argument list, such that e.g.
+
+            env.git.status("--help")
+
+        is equivalent to
+
+            env.git("status", "--help")
+        """
         return type(self)(self.env, self.name, self.arg + [name], self.kw)
     def _repr(self):
         args = []
@@ -233,6 +287,12 @@ class Command(Pipeline):
         return "\n".join(self("--help"))
 
 class Function(Pipeline):
+    """Encapsulates a function or iterator so that it can be used
+    inside a pipeline. An iterator can only have its output piped into
+    something. A function can have its output piped into something by
+    yeilding values, and can take input in the form of an iterator as
+    a sole argument."""
+
     def __init__(self, env, function, *arg, **kw):
         self.env = env
         self.function = function
@@ -281,6 +341,8 @@ class Function(Pipeline):
         
 
 class Pipe(Pipeline):
+    """Pipes the standard out of a source pipeline into the standard
+    in of a destination pipeline."""
     def __init__(self, env, src, dst):
         self.env = env
         self.src = src
