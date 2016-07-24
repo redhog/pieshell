@@ -93,31 +93,40 @@ class Pipeline(DescribableObject):
     interactive_state = threading.local()
     def __init__(self, env):
         self.env = env
-    def _coerce(self, thing):
-        if isinstance(thing, Pipeline):
-            return thing
-        elif isinstance(thing, types.FunctionType) or hasattr(thing, "__iter__") or hasattr(thing, "next"):
-            return Function(self.env, thing)
-        else:
+    def _coerce(self, thing, direction):
+        if thing is None:
+            thing = "/dev/null"
+        if isinstance(thing, (str, unicode)):
+            thing = redir.Redirect(direction, thing)
+        if isinstance(thing, redir.Redirect):
+            thing = redir.Redirects(thing, defaults=False)
+        if not isinstance(thing, Pipeline) and (isinstance(thing, types.FunctionType) or hasattr(thing, "__iter__") or hasattr(thing, "next")):
+            thing = Function(self.env, thing)
+        if not isinstance(thing, (Pipeline, redir.Redirects)):
             raise ValueError(type(thing))
+        return thing
     def __ror__(self, other):
         """Pipes the standard out of a pipeline into the standrad in
         of this pipeline."""
-        return Pipe(self.env, self._coerce(other), self)
+        other = self._coerce(other, 'stdin')
+        if isinstance(other, redir.Redirects):
+            return CmdRedirect(self.env, self, other)
+        else:
+            return Pipe(self.env, other, self)
     def __or__(self, other):
         """Pipes the standard out of the pipeline into the standrad in
         of another pipeline."""
-        return Pipe(self.env, self, self._coerce(other))
+        other = self._coerce(other, 'stdout')
+        if isinstance(other, redir.Redirects):
+            return CmdRedirect(self.env, self, other)
+        else:
+            return Pipe(self.env, self, other)
     def __gt__(self, file):
         """Redirects the standard out of the pipeline to a file."""
-        return CmdRedirect(
-            self.env, self,
-            redir.Redirects(redir.Redirect("stdout", file), defaults=False))
+        return self | file
     def __lt__(self, file):
         """Redirects the standard in of the pipeline from a file."""
-        return CmdRedirect(
-            self.env, self,
-            redir.Redirects(redir.Redirect("stdin", file), defaults=False))
+        return file | self
     def __add__(self, other):
         return Group(self.env, self, other)
     def run(self, redirects = []):

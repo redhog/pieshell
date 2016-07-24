@@ -43,6 +43,29 @@ Changing directory is done using the command cd just like in any shell
     140:/home/redhog/Projects/beta/pieshell >>> cd("..")
     140:/home/redhog/Projects/beta >>> 
 
+## Redirects
+
+    Standrad out and standard in of a pipeline can be redirected to a
+    file by piping to or from a string (the filename). As a special
+    case, None is a short hand for "/dev/null"
+
+    140:/home/redhog/Projects/beta/pieshell >>> ls | "foo"
+
+    140:/home/redhog/Projects/beta/pieshell >>> "foo" | cat
+    bar
+    build
+    deps
+    dist
+    foo
+    LICENSE.txt
+    pieshell
+    pieshell.egg-info
+    README.md
+    setup.py
+
+    140:/home/redhog/Projects/beta/pieshell >>> ls | None
+
+
 ## Interfacing between python functions and shell commands
 
 Shell commands are first class python objects, and their input and

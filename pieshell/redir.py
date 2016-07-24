@@ -115,7 +115,7 @@ class Redirects(object):
         self.register(Redirect(*arg, **kw))
         return self
     def merge(self, other):
-        self = Redirects(other)
+        self = Redirects(self)
         for redirect in other.redirects.itervalues():
             self.register(redirect)
         return self
