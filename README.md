@@ -43,6 +43,12 @@ Changing directory is done using the command cd just like in any shell
     140:/home/redhog/Projects/beta/pieshell >>> cd("..")
     140:/home/redhog/Projects/beta >>> 
 
+To execute commands that require a path, for example ones in the current directory, or commands with a dot in their names
+
+    140:/home/redhog/Projects/beta/pieshell >>> getattr(env, "./setup.py")("--help")
+    Common commands: (see '--help-commands' for more)
+    ...
+
 ## Redirects
 
 Standard out and standard in of a pipeline can be redirected to a file
