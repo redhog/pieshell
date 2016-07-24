@@ -132,6 +132,18 @@ class Pipeline(DescribableObject):
         else:
             return self._repr()
 
+    @property
+    def __bases__(self):
+        return []
+
+    @property
+    def __name__(self):
+        return Pipeline.repr(self)
+
+    @property
+    def __doc__(self):
+        return ""
+
 class Command(Pipeline):
     def __init__(self, env, name, arg = None, kw = None):
         self.env = env
@@ -215,14 +227,6 @@ class Command(Pipeline):
         res.redirects = redirects
 
         return [res]
-
-    @property
-    def __bases__(self):
-        return []
-
-    @property
-    def __name__(self):
-        return self.name
 
     @property
     def __doc__(self):
