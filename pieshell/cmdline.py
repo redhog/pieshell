@@ -70,9 +70,15 @@ class RunningProcess(object):
     def wait(self):
         os.waitpid(self.pid, 0)
 
+# help() doesn't let you override help on objects, only on classes, so
+# make everything a class...
+class DescribableObject(type):
+    def __new__(cls, *arg, **kw):
+        return type.__new__(cls, "", (type,), {})
+    def __init__(self, *arg, **kw):
+        pass
 
-
-class Pipeline(object):
+class Pipeline(DescribableObject):
     interactive_state = threading.local()
     def __init__(self, env):
         self.env = env
@@ -209,6 +215,18 @@ class Command(Pipeline):
         res.redirects = redirects
 
         return [res]
+
+    @property
+    def __bases__(self):
+        return []
+
+    @property
+    def __name__(self):
+        return self.name
+
+    @property
+    def __doc__(self):
+        return "\n".join(self("--help"))
 
 class Function(Pipeline):
     def __init__(self, env, function, *arg, **kw):
