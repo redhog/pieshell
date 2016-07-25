@@ -395,7 +395,21 @@ class InteractiveConsole(object):
         import pieshell
         scope = EnvScope(pieshell.__dict__, env = e)
         sys.ps1 = scope
-        return code.InteractiveConsole(locals=scope)
+        console = code.InteractiveConsole(locals=scope)
+        def exec_file(filename):
+            with open(filename) as f:
+                content = f.read()
+            try:
+                res = console.runsource(content, filename, "exec") 
+            except (SyntaxError, OverflowError), e:
+                console.showsyntaxerror(content)
+            except Exception, e:
+                console.showtraceback()
+            if res is not False:
+                print "Last command is incomplete in %s" % conf
+        console.exec_file = exec_file
+        scope["console"] = console
+        return console
 
     def __exit__(self, *args, **kw):
         sys.ps1 = self.ps1

@@ -153,6 +153,30 @@ siumultaneously, even within the same pipeline
     >>> env2 = env()
     >>> env2.cd("somedir")
 
+# Configuration
+
+When running pieshell in interactive mode it executes
+~/.config/pieshell at startup if it exists. This file can be used to
+configure the interactive environment the same way ~/.bashrc can be
+used to configure the bash shell. For example it can be used to load
+python modules, execute shell pipelines or set environment variables.
+
+If you have previously used bash, and have a .bashrc that sets a lot
+of environment variables, possibly by source:ing external scripts
+provided by various software packages, it might be useful to load
+those environment variables into pieshell automatically. This can be
+achieved with the following code in ~/.config/pieshell
+
+    decls = {}
+    for decl in bash("-c", "declare -x"):
+        if "=" not in decl: continue
+        name, value = decl[len("declare -x "):].split("=", 1)    
+        decls[name] = value.strip("\"")
+
+    env = env(env=decls)
+
+Note that this will execute bash every time you start pieshell.
+
 # Copyright
 
 Pieshell copyright 2016 Egil Möller <egil.moller@piratpartiet.se>

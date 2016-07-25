@@ -83,14 +83,12 @@ pieshell --help
             console.push('import readline')
             conf = os.path.expanduser('~/.config/pieshell')
             if os.path.exists(conf):
-                with open(conf) as f:
-                    console.runsource(f.read(), conf)
+                console.exec_file(conf)
             if "cmd" in kws:
                 console.push(kws["cmd"])
             elif args:
                 for arg in args:
-                    with open(arg) as f:
-                        console.runsource(f.read(), arg)
+                    console.exec_file(arg)
             else:
                 console.interact()
 
