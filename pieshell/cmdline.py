@@ -111,7 +111,7 @@ class DescribableObject(type):
 class Pipeline(DescribableObject):
     """Abstract base class for all pipelines"""
 
-    interactive_state = threading.local()
+    print_state = threading.local()
     def __init__(self, env):
         self.env = env
     def _coerce(self, thing, direction):
@@ -171,20 +171,20 @@ class Pipeline(DescribableObject):
     @classmethod
     def repr(cls, obj):
         """Returns a string representation of the pipeline"""
-        if not hasattr(cls.interactive_state, 'repr'):
-            cls.interactive_state.repr = 0
-        cls.interactive_state.repr += 1
+        if not hasattr(Pipeline.print_state, 'in_repr'):
+            Pipeline.print_state.in_repr = 0
+        Pipeline.print_state.in_repr += 1
         try:
             return repr(obj)
         finally:
-            cls.interactive_state.repr -= 1
+            Pipeline.print_state.in_repr -= 1
     def __repr__(self):
         """Runs the command if the environment has interactive=True,
         sending the output to standard out. If the environment is
         non-interactive, returns a string representation of the
         pipeline without running it."""
 
-        if self.env.interactive and getattr(self.interactive_state, "repr", 0) < 1:
+        if self.env.interactive and getattr(Pipeline.print_state, "in_repr", 0) < 1:
             pipeline = self.run()
             try:
                 iterio.IOHandlers.delay_cleanup()
@@ -199,7 +199,15 @@ class Pipeline(DescribableObject):
                 pdb.pm()
             return ""
         else:
-            return self._repr()
+            current_env = getattr(Pipeline.print_state, 'env', None)
+            Pipeline.print_state.env = self.env
+            try:
+                envstr = ''
+                if current_env is not self.env:
+                    envstr = repr(self.env)
+                return "%s%s" % (envstr, self._repr())
+            finally:
+                Pipeline.print_state.env = current_env
 
     def __dir__(self):
         return []
@@ -210,7 +218,12 @@ class Pipeline(DescribableObject):
 
     @property
     def __name__(self):
-        return Pipeline.repr(self)
+        current_env = getattr(Pipeline.print_state, 'env', None)
+        Pipeline.print_state.env = self.env
+        try:
+            return Pipeline.repr(self)
+        finally:
+            Pipeline.print_state.env = current_env
 
     @property
     def __doc__(self):
@@ -256,7 +269,7 @@ class Command(Pipeline):
             args += [repr(arg) for arg in self.arg]
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
-        return u"%s%s(%s)" % (repr(self.env), self.name, ', '.join(args))
+        return u"%s(%s)" % (self.name, ', '.join(args))
     def _child(self, redirects, args):
         redirects.perform()
         os.chdir(self.env.cwd)
