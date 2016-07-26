@@ -171,18 +171,20 @@ class Pipeline(DescribableObject):
     @classmethod
     def repr(cls, obj):
         """Returns a string representation of the pipeline"""
-        cls.interactive_state.repr = True
+        if not hasattr(cls.interactive_state, 'repr'):
+            cls.interactive_state.repr = 0
+        cls.interactive_state.repr += 1
         try:
             return repr(obj)
         finally:
-            cls.interactive_state.repr = False
+            cls.interactive_state.repr -= 1
     def __repr__(self):
         """Runs the command if the environment has interactive=True,
         sending the output to standard out. If the environment is
         non-interactive, returns a string representation of the
         pipeline without running it."""
 
-        if self.env.interactive and not getattr(self.interactive_state, "repr", False):
+        if self.env.interactive and getattr(self.interactive_state, "repr", 0) < 1:
             pipeline = self.run()
             try:
                 iterio.IOHandlers.delay_cleanup()
@@ -198,6 +200,9 @@ class Pipeline(DescribableObject):
             return ""
         else:
             return self._repr()
+
+    def __dir__(self):
+        return []
 
     @property
     def __bases__(self):
@@ -251,7 +256,7 @@ class Command(Pipeline):
             args += [repr(arg) for arg in self.arg]
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
-        return u"%s.%s(%s)" % (self.env, self.name, ', '.join(args))
+        return u"%s%s(%s)" % (repr(self.env), self.name, ', '.join(args))
     def _child(self, redirects, args):
         redirects.perform()
         os.chdir(self.env.cwd)
@@ -380,6 +385,8 @@ class Pipe(Pipeline):
         src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), indentation + "  ")
         dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), indentation + "  ")
         return src + dst
+    def __dir__(self):
+        return ["src", "dst"]
 
 # class Group(Pipeline):
 #     def __init__(self, env, first, second):
