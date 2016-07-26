@@ -29,6 +29,8 @@ class Environment(object):
     """
 
     def __init__(self, cwd = None, env = None, interactive = False):
+        """Creates a new environment from scratch. Takes the same
+        arguments as __call__."""
         self.cwd = os.getcwd()
         if cwd is not None:
             self.cd(cwd)
@@ -42,8 +44,23 @@ class Environment(object):
         if not os.path.exists(cwd):
             raise IOError("Path does not exist: %s" % cwd)
         self.cwd = cwd
+        if self.interactive:
+            os.chdir(cwd)
         return self
     def __call__(self, cwd = None, env = None, interactive = None):
+        """Creates a new environment based on the current ones. All
+        configuration is copied, unless specifically overridden.
+
+        cwd: Path to current working directory
+        env: Dictionary of environment variables
+        interactive: Boolean. If true:
+            * Changing the current working directory of this
+              environment changes the real working directory of the
+              current python process using os.chdir().
+            * repr() of a pipeline will run the pipeline with
+              stdin/stdout/stderr connected to the current terminal,
+              and wait until the pipeline terminates.
+        """
         if env is None:
             env = self.env
         if interactive is None:
@@ -53,10 +70,14 @@ class Environment(object):
             res.cd(cwd)
         return res
     def __getitem__(self, name):
+        """env[path] is equivalent to env(path)"""
         return self(name)
     def __getattr__(self, name):
+        """Creates a pipeline of one command in the current
+        environment."""
         return Command(self, name)
     def __repr__(self):
+        """Prints the current prompt"""
         if self.interactive:
             return "%s:%s >>> " % (str(id(self))[:3], self.cwd)
         else:
@@ -139,8 +160,14 @@ class Pipeline(DescribableObject):
         """Runs the pipeline and iterates over its standrad output lines."""
         return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
     def __unicode__(self):
+        # FIXME: Should use locale, but python's locale module is broken and ignores LC_* by default
+        return str(self).decode("utf-8")
+    def __str__(self):
         """Runs the pipeline and returns its standrad out output as a string"""
         return "\n".join(iter(self.run([redir.Redirect("stdout", redir.PIPE)])))
+    def __invert__(self):
+        """Start a pipeline in the background"""
+        self.run()
     @classmethod
     def repr(cls, obj):
         """Returns a string representation of the pipeline"""
