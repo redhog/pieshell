@@ -75,6 +75,9 @@ class Environment(object):
 env = Environment()
 
 class EnvScope(dict):
+    """EnvScope can be used instead of a globals() dictionary to allow
+    global lookup of command names, without the env.COMMAND
+    prefixing."""
     def __getitem__(self, name):
         try:
             return dict.__getitem__(self, name)
@@ -85,3 +88,6 @@ class EnvScope(dict):
 
     def __str__(self):
         return str(dict.__getitem__(self, 'env'))
+
+    def __unicode__(self):
+        return unicode(dict.__getitem__(self, 'env'))
