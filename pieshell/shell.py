@@ -1,11 +1,38 @@
-from cmdline import *
 import sys
 import os
+import code
+
+from . import environ
 
 # Example usage
 # for line in env.find(".", name='foo*', type='f') | env.grep("bar.*"):
 #    print line
 
+class InteractiveConsole(object):
+    def __enter__(self):
+        e = environ.env(interactive=True)
+        self.ps1 = getattr(sys, "ps1", None)
+        import pieshell
+        scope = environ.EnvScope(pieshell.__dict__, env = e)
+        sys.ps1 = scope
+        console = code.InteractiveConsole(locals=scope)
+        def exec_file(filename):
+            with open(filename) as f:
+                content = f.read()
+            try:
+                res = console.runsource(content, filename, "exec") 
+            except (SyntaxError, OverflowError), e:
+                console.showsyntaxerror(content)
+            except Exception, e:
+                console.showtraceback()
+            if res is not False:
+                print "Last command is incomplete in %s" % conf
+        console.exec_file = exec_file
+        scope["console"] = console
+        return console
+
+    def __exit__(self, *args, **kw):
+        sys.ps1 = self.ps1
 
 
 def main():
