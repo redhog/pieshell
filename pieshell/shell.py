@@ -8,33 +8,6 @@ from . import environ
 # for line in env.find(".", name='foo*', type='f') | env.grep("bar.*"):
 #    print line
 
-class InteractiveConsole(object):
-    def __enter__(self):
-        e = environ.env(interactive=True)
-        self.ps1 = getattr(sys, "ps1", None)
-        import pieshell
-        scope = environ.EnvScope(pieshell.__dict__, env = e)
-        sys.ps1 = scope
-        console = code.InteractiveConsole(locals=scope)
-        def exec_file(filename):
-            with open(filename) as f:
-                content = f.read()
-            try:
-                res = console.runsource(content, filename, "exec") 
-            except (SyntaxError, OverflowError), e:
-                console.showsyntaxerror(content)
-            except Exception, e:
-                console.showtraceback()
-            if res is not False:
-                print "Last command is incomplete in %s" % conf
-        console.exec_file = exec_file
-        scope["console"] = console
-        return console
-
-    def __exit__(self, *args, **kw):
-        sys.ps1 = self.ps1
-
-
 def main():
 
     def test():
@@ -101,23 +74,27 @@ pieshell FILE.pysh
 pieshell --cmd='any valid pieshell command or python statement'
 pieshell --test
 pieshell --help
+pieshell --ptpython
+    Fancy editing environment based on ptpython (pip install ptpython)
 
 """
     elif kws.get("test", False):
         test()
     else:
-        with InteractiveConsole() as console:
-            console.push('import readline')
-            conf = os.path.expanduser('~/.config/pieshell')
-            if os.path.exists(conf):
-                console.exec_file(conf)
+        with environ.envScope:
+            environ.envScope.execute_startup()
             if "cmd" in kws:
-                console.push(kws["cmd"])
+                environ.execute_expr(kws["cmd"])
             elif args:
                 for arg in args:
-                    console.exec_file(arg)
+                    environ.execute_file(arg)
             else:
-                console.interact()
+                if kws.get("ptpython", False):
+                    import pieshell.monkeypatches.patch_jedi
+                    import ptpython.repl
+                    ptpython.repl.embed(locals=environ.envScope, vi_mode=False)
+                else:
+                    code.InteractiveConsole(locals=environ.envScope).interact()
 
 if __name__ == '__main__':
     main()

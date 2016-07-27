@@ -1,6 +1,8 @@
 import os
+import sys
 
 from . import pipeline
+import pieshell
 
 class Environment(object):
     """An environment within which a command or pipeline can run. The
@@ -91,3 +93,29 @@ class EnvScope(dict):
 
     def __unicode__(self):
         return unicode(dict.__getitem__(self, 'env'))
+
+    def execute_file(self, filename):
+        with open(filename) as f:
+            content = f.read()
+        exec content in self
+
+    def execute_expr(self, expr):
+        exec expr in self
+
+    def execute_startup(self):
+        env = self["env"]
+        self.execute_expr("from pieshell import *")
+        self["env"] = env
+        self.execute_expr("import readline")
+        conf = os.path.expanduser('~/.config/pieshell')
+        if os.path.exists(conf):
+            self.execute_file(conf)
+
+    def __enter__(self):
+        self.ps1 = getattr(sys, "ps1", None)
+        sys.ps1 = self
+
+    def __exit__(self, *args, **kw):
+        sys.ps1 = self.ps1
+
+envScope = EnvScope(env = env(interactive=True))
