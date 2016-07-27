@@ -9,6 +9,7 @@ import uuid
 import code
 import threading
 
+from . import copy
 from . import iterio
 from . import redir
 from . import log
@@ -42,6 +43,8 @@ class Pipeline(DescribableObject):
     print_state = threading.local()
     def __init__(self, env):
         self.env = env
+    def __deepcopy__(self, memo = {}):
+        return type(self)(self.env)
     def _coerce(self, thing, direction):
         if thing is None:
             thing = "/dev/null"
@@ -169,6 +172,8 @@ class Command(Pipeline):
         self.name = name
         self.arg = arg or []
         self.kw = kw or {}
+    def __deepcopy__(self, memo = {}):
+        return type(self)(self.env, self.name, copy.deepcopy(self.arg), copy.deepcopy(self.kw))
     def __call__(self, *arg, **kw):
         """Appends a set of arguments to the argument list
 
@@ -270,7 +275,8 @@ class Function(Pipeline):
         self.function = function
         self.arg = arg
         self.kw = kw
-
+    def __deepcopy__(self, memo = {}):
+        return type(self)(self.env, self.function, *copy.deepcopy(self.arg), **copy.deepcopy(self.kw))
     def _repr(self):
         thing = self.function
         if isinstance(thing, types.FunctionType):
@@ -319,6 +325,8 @@ class Pipe(Pipeline):
         self.env = env
         self.src = src
         self.dst = dst
+    def __deepcopy__(self, memo = {}):
+        return type(self)(self.env, copy.deepcopy(self.src), copy.deepcopy(self.dst))
     def _repr(self):
         return u"%s | %s" % (repr(self.src), repr(self.dst))
     def _run(self, redirects, indentation = ""):
@@ -345,6 +353,8 @@ class CmdRedirect(Pipeline):
         self.env = env
         self.pipeline = pipeline
         self.redirects = redirects
+    def __deepcopy__(self, memo = {}):
+        return type(self)(self.env, copy.deepcopy(self.pipeline), copy.deepcopy(self.redirects))
     def _repr(self):
         return u"%s with %s" % (Pipeline.repr(self.pipeline), repr(self.redirects))
     def _run(self, redirects, indentation = ""):

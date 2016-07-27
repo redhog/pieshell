@@ -9,6 +9,7 @@ import threading
 
 from . import pipe
 from . import log
+from . import copy
 
 try:
     MAXFD = os.sysconf("SC_OPEN_MAX")
@@ -36,6 +37,9 @@ class Redirect(object):
         self.flag = flag
         self.mode = mode
         self.pipe = pipe
+    def __deepcopy__(self, memo = {}):
+        return type(self)(self.fd, copy.deepcopy(self.source), self.flag, self.mode, self.pipe)
+
     def open(self):
         source = self.source
         if not isinstance(source, int):
