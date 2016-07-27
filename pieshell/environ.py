@@ -73,6 +73,16 @@ class Environment(object):
             return "%s:%s >>> " % (str(id(self))[:3], self.cwd)
         else:
             return "[%s:%s]" % (str(id(self))[:3], self.cwd)
+    def keys(self):
+        e = self.env or os.environ
+        res = []
+        paths = e["PATH"].split(":")
+        for pth in paths:
+            if not pth.startswith("/"):
+                pth = os.path.join(self.cwd, pth)
+            res.extend(os.listdir(os.path.abspath(pth)))
+        res.sort()
+        return res
 
 env = Environment()
 
@@ -87,6 +97,9 @@ class EnvScope(dict):
             if name in __builtins__:
                 raise
             return getattr(dict.__getitem__(self, 'env'), name)
+
+    def keys(self):
+        return dict.keys(self) + dict.__getitem__(self, 'env').keys()
 
     def __str__(self):
         return str(dict.__getitem__(self, 'env'))

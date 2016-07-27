@@ -95,7 +95,7 @@ class Pipeline(DescribableObject):
         return "\n".join(iter(self.run([redir.Redirect("stdout", redir.PIPE)])))
     def __invert__(self):
         """Start a pipeline in the background"""
-        self.run()
+        return self.run()
     @classmethod
     def repr(cls, obj):
         """Returns a string representation of the pipeline"""
