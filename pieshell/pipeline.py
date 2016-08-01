@@ -7,6 +7,7 @@ import sys
 import tempfile
 import uuid
 import code
+import traceback
 import threading
 
 from . import iterio
@@ -277,7 +278,11 @@ class Command(Pipeline):
         return (item.strip() for item in self.env.get_completions(cmd))
 
     def __dir__(self):
-        return list(self.complete())
+        try:
+            return list(self.complete())
+        except Exception, e:
+            traceback.print_exc()
+            return ["<%s>" % e]
 
     @property
     def __doc__(self):

@@ -2,6 +2,7 @@ import os
 import sys
 
 from . import pipeline
+import traceback
 import pieshell
 
 class Environment(object):
@@ -102,10 +103,14 @@ class EnvScope(dict):
         return dict.keys(self) + dict.__getitem__(self, 'env').keys()
 
     def __str__(self):
-        return str(dict.__getitem__(self, 'env'))
+        return unicode(self).encode('utf-8')
 
     def __unicode__(self):
-        return unicode(dict.__getitem__(self, 'env'))
+        try:
+            return unicode(dict.__getitem__(self, 'env'))
+        except Exception, e:
+            traceback.print_exc()
+            return u'<%s>' % e
 
     def execute_file(self, filename):
         with open(filename) as f:
