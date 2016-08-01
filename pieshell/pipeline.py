@@ -116,12 +116,12 @@ class Pipeline(DescribableObject):
         if self.env.interactive and getattr(Pipeline.print_state, "in_repr", 0) < 1:
             pipeline = self.run()
             try:
-                iterio.IOHandlers.delay_cleanup()
+                iterio.get_io_manager().delay_cleanup()
                 try:
-                    iterio.IOHandlers.handleIo()
+                    iterio.get_io_manager().handle_io()
                     pipeline.join()
                 finally:
-                    iterio.IOHandlers.perform_cleanup()
+                    iterio.get_io_manager().perform_cleanup()
             except:
                 sys.last_traceback = sys.exc_info()[2]
                 import pdb

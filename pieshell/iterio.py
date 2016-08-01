@@ -1,71 +1,73 @@
 import os
 import fcntl
 import select
+import threading
 
 debug = False
 
-class IOHandlers(object):
-    ioHandlers = {}
-    delay = 0
+class IOManager(object):
+    def __init__(self):
+        self.io_handlers = {}
+        self.delay = 0
 
-    poll = select.poll()
+        self.poll = select.poll()
 
-    cleanup = []
+        self.cleanup = []
 
-    @classmethod
-    def register_cleanup(cls, cleanup):
-        cls.cleanup.append(cleanup)
+    def register_cleanup(self, cleanup):
+        self.cleanup.append(cleanup)
 
-    @classmethod
-    def delay_cleanup(cls):
-        cls.delay += 1
+    def delay_cleanup(self):
+        self.delay += 1
 
-    @classmethod
-    def perform_cleanup(cls):
-        if cls.delay > 0:
-            cls.delay -= 1
-        cls._do_cleanup()
+    def perform_cleanup(self):
+        if self.delay > 0:
+            self.delay -= 1
+        self._do_cleanup()
 
-    @classmethod
-    def register(cls, ioHandler):
-        cls.poll.register(ioHandler.fd, ioHandler.events)
-        cls.ioHandlers[ioHandler.fd] = ioHandler
+    def register(self, ioHandler):
+        self.poll.register(ioHandler.fd, ioHandler.events)
+        self.io_handlers[ioHandler.fd] = ioHandler
         if debug: print "REGISTER", ioHandler.fd, ioHandler.events, ioHandler
 
-    @classmethod    
-    def _do_cleanup(cls):
-        while cls.delay == 0 and not len(cls.ioHandlers) and cls.cleanup:
-            cls.cleanup.pop()()
+    def _do_cleanup(self):
+        while self.delay == 0 and not len(self.io_handlers) and self.cleanup:
+            self.cleanup.pop()()
 
-    @classmethod
-    def deregister(cls, ioHandler):
-        cls.poll.unregister(ioHandler.fd)
-        del cls.ioHandlers[ioHandler.fd]
-        cls._do_cleanup()
+    def deregister(self, ioHandler):
+        self.poll.unregister(ioHandler.fd)
+        del self.io_handlers[ioHandler.fd]
+        self._do_cleanup()
         if debug: print "DEREGISTER", ioHandler.fd, ioHandler
     
-    @classmethod
-    def handleIo(cls):
-        while cls.ioHandlers:
-            events = cls.poll.poll()
+    def handle_io(self):
+        while self.io_handlers:
+            events = self.poll.poll()
             if debug: print "EVENTS", events
             assert events
             done = False
             for fd, event in events:
-                event_done = cls.ioHandlers[fd].handle_event(event)
+                event_done = self.io_handlers[fd].handle_event(event)
                 done = done or event_done
             if done:
                 return
+
+io_managers = threading.local()
+def get_io_manager():
+    if not hasattr(io_managers, 'manager'):
+        io_managers.manager = IOManager()
+    return io_managers.manager
+
 
 class IOHandler(object):
     events = 0
     def __init__(self, fd):
         self.fd = fd
-        IOHandlers.register(self)
+        get_io_manager().register(self)
     def handle_event(self, event):
         pass
     def destroy(self):
-        IOHandlers.deregister(self)
+        get_io_manager().deregister(self)
         if debug: print "CLOSE DESTROY", self.fd, self
         os.close(self.fd)
 
@@ -113,7 +115,7 @@ class InputHandler(IOHandler):
 
     def next(self):
         while self.buffer is None:
-            IOHandlers.handleIo()
+            get_io_manager().handle_io()
             if self.eof:
                 raise StopIteration
         try:
@@ -137,7 +139,7 @@ class LineInputHandler(InputHandler):
 
     def next(self):
         while '\n' not in self.buffer:
-            IOHandlers.handleIo()
+            get_io_manager().handle_io()
             if self.eof:
                 raise StopIteration
         ret, self.buffer = self.buffer.split("\n", 1)
