@@ -95,6 +95,13 @@ pieshell --ptpython
                 if kws.get("ptpython", False):
                     import pieshell.monkeypatches.patch_jedi
                     import ptpython.repl
+
+                    import pygments.token
+                    import ptpython.prompt_style
+                    def in_tokens(self, cli):
+                        return [(pygments.token.Token.Prompt, str(environ.envScope))]
+                    ptpython.prompt_style.ClassicPrompt.in_tokens = in_tokens
+
                     ptpython.repl.embed(locals=environ.envScope, vi_mode=False)
                 else:
                     code.InteractiveConsole(locals=environ.envScope).interact()
