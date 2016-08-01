@@ -15,8 +15,9 @@ from . import redir
 from . import log
 
 class RunningPipeline(object):
-    def __init__(self, processes):
+    def __init__(self, processes, pipeline):
         self.processes = processes
+        self.pipeline = pipeline
     def __iter__(self):
         return iterio.LineInputHandler(self.processes[-1].redirects.stdout.pipe)
     def join(self):
@@ -86,7 +87,10 @@ class Pipeline(DescribableObject):
         a RunningPipeline instance."""
         if not isinstance(redirects, redir.Redirects):
             redirects = redir.Redirects(*redirects)
-        return RunningPipeline(self._run(redirects))
+        with copy.copy_session() as sess:
+            self = copy.deepcopy(self)
+            processes = self._run(redirects, sess)
+        return RunningPipeline(processes, self)
     def __iter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
         return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
@@ -209,7 +213,7 @@ class Command(Pipeline):
         os.execvpe(args[0], args, self.env.env)
         os._exit(-1)
 
-    def handle_arg_pipes(self, thing, redirects, indentation):
+    def handle_arg_pipes(self, thing, redirects, sess, indentation):
         if isinstance(thing, Pipeline):
             direction = "stdout"
         elif isinstance(thing, types.FunctionType):
@@ -222,7 +226,7 @@ class Command(Pipeline):
             # Not a named pipe item, just a string
             return thing
       
-        arg_pipe = thing._run(redir.Redirects(redir.Redirect(direction, redir.PIPE)), indentation + "  ")
+        arg_pipe = thing._run(redir.Redirects(redir.Redirect(direction, redir.PIPE)), sess, indentation + "  ")
 
         fd = redirects.find_free_fd()
         redirects.redirect(
@@ -232,15 +236,15 @@ class Command(Pipeline):
 
         return "/dev/fd/%s" % fd
 
-    def _run(self, redirects, indentation = ""):
+    def _run(self, redirects, sess, indentation = ""):
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
 
         args = [self.name]
         if self.arg:
-            args += [self.handle_arg_pipes(item, redirects, indentation) for item in self.arg]
+            args += [self.handle_arg_pipes(item, redirects, sess, indentation) for item in self.arg]
         if self.kw:
-            args += ["--%s=%s" % (name, self.handle_arg_pipes(value, redirects, indentation))
+            args += ["--%s=%s" % (name, self.handle_arg_pipes(value, redirects, sess, indentation))
                      for (name, value) in self.kw.iteritems()]
 
         log.log(indentation + "  Command line %s witth %s" % (' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
@@ -251,13 +255,14 @@ class Command(Pipeline):
             # If we ever get to here, all is lost...
             sys._exit(-1)
 
-        res = RunningProcess(pid)
+        self.running_process = RunningProcess(pid)
 
         redirects.close_source_fds()
 
-        res.redirects = redirects
+        self.pid = pid
+        self.redirects = self.running_process.redirects = redirects
 
-        return [res]
+        return [self.running_process]
 
     @property
     def __doc__(self):
@@ -289,7 +294,7 @@ class Function(Pipeline):
         else:
             return repr(thing)
 
-    def _run(self, redirects, indentation = ""):
+    def _run(self, redirects, sess, indentation = ""):
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
 
@@ -309,13 +314,13 @@ class Function(Pipeline):
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
 
-        res = iterio.LineOutputHandler(
+        self.running_process = iterio.LineOutputHandler(
             redirects.stdout.open(),
             (convert(x) for x in thing))
 
-        res.redirects = redirects
+        self.redirects = self.running_process.redirects = redirects
 
-        return [res]
+        return [self.running_process]
         
 
 class Pipe(Pipeline):
@@ -329,10 +334,10 @@ class Pipe(Pipeline):
         return type(self)(self.env, copy.deepcopy(self.src), copy.deepcopy(self.dst))
     def _repr(self):
         return u"%s | %s" % (repr(self.src), repr(self.dst))
-    def _run(self, redirects, indentation = ""):
+    def _run(self, redirects, sess, indentation = ""):
         log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
-        src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), indentation + "  ")
-        dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), indentation + "  ")
+        src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), sess, indentation + "  ")
+        dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), sess, indentation + "  ")
         return src + dst
     def __dir__(self):
         return ["src", "dst"]
@@ -352,11 +357,12 @@ class CmdRedirect(Pipeline):
     def __init__(self, env, pipeline, redirects):
         self.env = env
         self.pipeline = pipeline
-        self.redirects = redirects
+        self.cmd_redirects = redirects
     def __deepcopy__(self, memo = {}):
-        return type(self)(self.env, copy.deepcopy(self.pipeline), copy.deepcopy(self.redirects))
+        return type(self)(self.env, copy.deepcopy(self.pipeline), copy.deepcopy(self.cmd_redirects))
     def _repr(self):
-        return u"%s with %s" % (Pipeline.repr(self.pipeline), repr(self.redirects))
-    def _run(self, redirects, indentation = ""):
+        return u"%s with %s" % (Pipeline.repr(self.pipeline), repr(self.cmd_redirects))
+    def _run(self, redirects, sess, indentation = ""):
         log.log(indentation + "Running [%s] with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
-        return self.pipeline._run(redirects.merge(self.redirects), indentation + "  ")
+        self.redirects = redirects.merge(self.cmd_redirects)
+        return self.pipeline._run(self.redirects, indentation + "  ")

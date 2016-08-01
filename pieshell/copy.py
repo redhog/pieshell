@@ -1,12 +1,17 @@
 # Minimal reimplementation of copy.deepcopy that happily copies
 # objects inheriting from type...
+import threading
+import contextlib
 
 copy_state = threading.local()
 
 @contextlib.contextmanager
-def copy_session():
+def copy_session(sess = None):
     old_memo = getattr(copy_state, "memo", None)
-    copy_state.memo = old_memo or {}
+    if sess:
+        copy_state.memo = sess
+    else:
+        copy_state.memo = old_memo or {}
     try:
         yield copy_state.memo
     finally:
