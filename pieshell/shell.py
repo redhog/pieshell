@@ -82,7 +82,10 @@ pieshell --ptpython
         test()
     else:
         with environ.envScope:
+            environ.envScope["args"] = args
+            environ.envScope["kws"] = kws
             environ.envScope.execute_startup()
+
             if "cmd" in kws:
                 environ.execute_expr(kws["cmd"])
             elif args:
