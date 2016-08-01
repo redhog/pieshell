@@ -25,5 +25,6 @@ It can be used in two major ways:
         'console_scripts': [
             'pieshell = pieshell.shell:main',
         ],
-    }
+    },
+    scripts = ["contrib/get_completions"]
 )

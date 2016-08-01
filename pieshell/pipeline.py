@@ -198,6 +198,29 @@ class Command(Pipeline):
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
         return u"%s(%s)" % (self.name, ', '.join(args))
+
+    def arg_list(self, redirects = None, indentation = ""):
+        def handle_arg_pipes(item):
+            if redirects is not None:
+                return self.handle_arg_pipes(item, redirects, indentation)
+            else:
+                return "/dev/fd/X"
+        args = [self.name]
+        if self.arg:
+            args += [handle_arg_pipes(item) for item in self.arg]
+        if self.kw:
+            args += ["--%s=%s" % (name, handle_arg_pipes(value))
+                     for (name, value) in self.kw.iteritems()]
+        return args
+
+    def arg_list_sh(self, *arg, **kw):
+        def quote_arg(arg):
+            arg = str(arg)
+            if " " in arg:
+                arg = repr(arg)
+            return arg
+        return ' '.join(quote_arg(arg) for arg in self.arg_list(*arg, **kw))
+
     def _child(self, redirects, args):
         redirects.perform()
         os.chdir(self.env.cwd)
@@ -231,12 +254,7 @@ class Command(Pipeline):
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
 
-        args = [self.name]
-        if self.arg:
-            args += [self.handle_arg_pipes(item, redirects, indentation) for item in self.arg]
-        if self.kw:
-            args += ["--%s=%s" % (name, self.handle_arg_pipes(value, redirects, indentation))
-                     for (name, value) in self.kw.iteritems()]
+        args = self.arg_list(redirects, indentation)
 
         log.log(indentation + "  Command line %s witth %s" % (' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
 
@@ -253,6 +271,13 @@ class Command(Pipeline):
         res.redirects = redirects
 
         return [res]
+
+    def complete(self):
+        cmd = self.arg_list_sh() + " "
+        return (item.strip() for item in self.env.get_completions(cmd))
+
+    def __dir__(self):
+        return list(self.complete())
 
     @property
     def __doc__(self):
