@@ -19,7 +19,7 @@ class RunningPipeline(object):
         self.processes = processes
         self.pipeline = pipeline
     def __iter__(self):
-        return iterio.LineInputHandler(self.processes[-1].redirects.stdout.pipe)
+        return iterio.LineInputHandler(self.pipeline.redirects.stdout.pipe)
     def join(self):
         last = self.processes[-1]
         last.wait()
@@ -82,6 +82,7 @@ class Pipeline(DescribableObject):
         return file | self
     def __add__(self, other):
         return Group(self.env, self, other)
+
     def run(self, redirects = []):
         """Runs the pipelines with the specified redirects and returns
         a RunningPipeline instance."""
@@ -91,6 +92,7 @@ class Pipeline(DescribableObject):
             self = copy.deepcopy(self)
             processes = self._run(redirects, sess)
         return RunningPipeline(processes, self)
+
     def __iter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
         return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
@@ -338,6 +340,11 @@ class Pipe(Pipeline):
         log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
         src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), sess, indentation + "  ")
         dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), sess, indentation + "  ")
+
+        self.redirects = self.src.redirects.merge(self.dst.redirects)
+        self.redirects.register(redir.Redirect(self.src.redirects.stdin))
+        self.redirects.register(redir.Redirect(self.dst.redirects.stdout))
+
         return src + dst
     def __dir__(self):
         return ["src", "dst"]
@@ -364,5 +371,8 @@ class CmdRedirect(Pipeline):
         return u"%s with %s" % (Pipeline.repr(self.pipeline), repr(self.cmd_redirects))
     def _run(self, redirects, sess, indentation = ""):
         log.log(indentation + "Running [%s] with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
-        self.redirects = redirects.merge(self.cmd_redirects)
-        return self.pipeline._run(self.redirects, indentation + "  ")
+
+        res = self.pipeline._run(redirects.merge(self.cmd_redirects), indentation + "  ")
+        self.redirects = self.pipeline.redirects
+        return res
+        
