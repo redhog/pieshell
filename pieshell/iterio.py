@@ -2,6 +2,7 @@ import os
 import fcntl
 import select
 import threading
+import signalfd
 
 debug = False
 
@@ -144,3 +145,25 @@ class LineInputHandler(InputHandler):
                 raise StopIteration
         ret, self.buffer = self.buffer.split("\n", 1)
         return ret
+
+
+class SignalHandler(IOHandler):
+    events = select.POLLIN
+    
+    def __init__(self, mask):
+        self.mask = mask
+        IOHandler.__init__(self, signalfd.signalfd(-1, mask, signalfd.SFD_CLOEXEC))
+        signalfd.sigprocmask(signalfd.SIG_BLOCK, mask)
+        self.buffer = []
+
+    def handle_event(self, event):
+        self.buffer[0:0] = [signalfd.read_siginfo(self.fd)]
+        return True
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        while not self.buffer:
+            get_io_manager().handle_io()
+        return self.buffer.pop()
