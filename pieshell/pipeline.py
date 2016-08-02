@@ -7,6 +7,7 @@ import sys
 import tempfile
 import uuid
 import code
+import traceback
 import threading
 
 from . import copy
@@ -104,7 +105,7 @@ class Pipeline(DescribableObject):
         return "\n".join(iter(self.run([redir.Redirect("stdout", redir.PIPE)])))
     def __invert__(self):
         """Start a pipeline in the background"""
-        self.run()
+        return self.run()
     @classmethod
     def repr(cls, obj):
         """Returns a string representation of the pipeline"""
@@ -124,12 +125,12 @@ class Pipeline(DescribableObject):
         if self.env.interactive and getattr(Pipeline.print_state, "in_repr", 0) < 1:
             pipeline = self.run()
             try:
-                iterio.IOHandlers.delay_cleanup()
+                iterio.get_io_manager().delay_cleanup()
                 try:
-                    iterio.IOHandlers.handleIo()
+                    iterio.get_io_manager().handle_io()
                     pipeline.join()
                 finally:
-                    iterio.IOHandlers.perform_cleanup()
+                    iterio.get_io_manager().perform_cleanup()
             except:
                 sys.last_traceback = sys.exc_info()[2]
                 import pdb
@@ -209,6 +210,29 @@ class Command(Pipeline):
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
         return u"%s(%s)" % (self.name, ', '.join(args))
+
+    def arg_list(self, redirects = None, sess = None, indentation = ""):
+        def handle_arg_pipes(item):
+            if redirects is not None:
+                return self.handle_arg_pipes(item, redirects, sess, indentation)
+            else:
+                return "/dev/fd/X"
+        args = [self.name]
+        if self.arg:
+            args += [handle_arg_pipes(item) for item in self.arg]
+        if self.kw:
+            args += ["--%s=%s" % (name, handle_arg_pipes(value))
+                     for (name, value) in self.kw.iteritems()]
+        return args
+
+    def arg_list_sh(self, *arg, **kw):
+        def quote_arg(arg):
+            arg = str(arg)
+            if " " in arg:
+                arg = repr(arg)
+            return arg
+        return ' '.join(quote_arg(arg) for arg in self.arg_list(*arg, **kw))
+
     def _child(self, redirects, args):
         redirects.perform()
         os.chdir(self.env.cwd)
@@ -242,12 +266,7 @@ class Command(Pipeline):
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
 
-        args = [self.name]
-        if self.arg:
-            args += [self.handle_arg_pipes(item, redirects, sess, indentation) for item in self.arg]
-        if self.kw:
-            args += ["--%s=%s" % (name, self.handle_arg_pipes(value, redirects, sess, indentation))
-                     for (name, value) in self.kw.iteritems()]
+        args = self.arg_list(redirects, sess, indentation)
 
         log.log(indentation + "  Command line %s witth %s" % (' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
 
@@ -265,6 +284,17 @@ class Command(Pipeline):
         self.redirects = self.running_process.redirects = redirects
 
         return [self.running_process]
+
+    def complete(self):
+        cmd = self.arg_list_sh() + " "
+        return (item.strip() for item in self.env.get_completions(cmd))
+
+    def __dir__(self):
+        try:
+            return list(self.complete())
+        except Exception, e:
+            traceback.print_exc()
+            return ["<%s>" % e]
 
     @property
     def __doc__(self):

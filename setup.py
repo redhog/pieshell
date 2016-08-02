@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 setup(
@@ -20,10 +20,11 @@ It can be used in two major ways:
     author_email = "egil.moller@piratpartiet.se",
     license = "GPL",
     url = "https://github.com/redhog/pieshell",
-    packages = ["pieshell"],
+    packages = find_packages(),
     entry_points={
         'console_scripts': [
             'pieshell = pieshell.shell:main',
         ],
-    }
+    },
+    scripts = ["contrib/get_completions"]
 )
