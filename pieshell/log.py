@@ -2,7 +2,7 @@ import os
 import sys
 
 debug = {
-    "all": False,
+    "all": True,
     "fd": False,
     "cmd": False
     }

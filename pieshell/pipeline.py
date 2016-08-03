@@ -9,6 +9,9 @@ import uuid
 import code
 import traceback
 import threading
+import signal
+import signalfd
+import operator
 
 from . import copy
 from . import iterio
@@ -21,15 +24,18 @@ class RunningPipeline(object):
         self.pipeline = pipeline
     def __iter__(self):
         return iterio.LineInputHandler(self.pipeline.redirects.stdout.pipe)
-    def join(self):
-        last = self.processes[-1]
-        last.wait()
+    def wait(self):
+        while reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
+            iterio.get_io_manager().handle_io()
 
 class RunningProcess(object):
     def __init__(self, pid):
         self.pid = pid
-    def wait(self):
-        os.waitpid(self.pid, 0)
+        print "SIGHANDLER", pid
+        self.signalhandler = iterio.ProcessSignalHandler(pid)
+    @property
+    def is_running(self):
+        return self.signalhandler.is_running
 
 # help() doesn't let you override help on objects, only on classes, so
 # make everything a class...
@@ -94,6 +100,17 @@ class Pipeline(DescribableObject):
             processes = self._run(redirects, sess)
         return RunningPipeline(processes, self)
 
+    def run_interactive(self):
+        try:
+            pipeline = self.run()
+            pipeline.wait()
+        except Exception, e:
+            print e
+            sys.last_traceback = sys.exc_info()[2]
+            import pdb
+            pdb.pm()
+        return ""
+
     def __iter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
         return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
@@ -106,6 +123,8 @@ class Pipeline(DescribableObject):
     def __invert__(self):
         """Start a pipeline in the background"""
         return self.run()
+
+
     @classmethod
     def repr(cls, obj):
         """Returns a string representation of the pipeline"""
@@ -123,19 +142,8 @@ class Pipeline(DescribableObject):
         pipeline without running it."""
 
         if self.env.interactive and getattr(Pipeline.print_state, "in_repr", 0) < 1:
-            pipeline = self.run()
-            try:
-                iterio.get_io_manager().delay_cleanup()
-                try:
-                    iterio.get_io_manager().handle_io()
-                    pipeline.join()
-                finally:
-                    iterio.get_io_manager().perform_cleanup()
-            except:
-                sys.last_traceback = sys.exc_info()[2]
-                import pdb
-                pdb.pm()
-            return ""
+            self.run_interactive()
+            return ''
         else:
             current_env = getattr(Pipeline.print_state, 'env', None)
             Pipeline.print_state.env = self.env
@@ -252,6 +260,7 @@ class Command(Pipeline):
             # Not a named pipe item, just a string
             return thing
       
+        # FIXME: Thing needs copying
         arg_pipe = thing._run(redir.Redirects(redir.Redirect(direction, redir.PIPE)), sess, indentation + "  ")
 
         fd = redirects.find_free_fd()
