@@ -29,7 +29,7 @@ class RunningPipeline(object):
             iterio.get_io_manager().handle_io()
 
     def __repr__(self):
-        return ', '.join(repr(proc) for proc in self.processes)
+        return repr(self.pipeline)
 
 class RunningProcess(iterio.ProcessSignalHandler):
     def __repr__(self):
