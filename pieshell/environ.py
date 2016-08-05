@@ -67,7 +67,10 @@ class Environment(object):
     def __getattr__(self, name):
         """Creates a pipeline of one command in the current
         environment."""
-        return pipeline.Command(self, name)
+        if name == "_":
+            return pipeline.Command(self)
+        else:
+            return pipeline.Command(self, [name])
     def __repr__(self):
         """Prints the current prompt"""
         if self.interactive:
@@ -95,7 +98,7 @@ class EnvScope(dict):
         try:
             return dict.__getitem__(self, name)
         except KeyError:
-            if name in __builtins__:
+            if name != "_" and name in __builtins__:
                 raise
             return getattr(dict.__getitem__(self, 'env'), name)
 

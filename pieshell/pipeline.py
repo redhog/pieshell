@@ -12,6 +12,7 @@ import threading
 import signal
 import signalfd
 import operator
+import re
 
 from . import copy
 from . import iterio
@@ -193,19 +194,17 @@ class Pipeline(DescribableObject):
 
 class Command(Pipeline):
     """Runs an external program with the specified arguments.
-    Arguments can be sent in either list or dictionary form.
-    Dictionary arguments are converted into --key=value. Note that
-    this short hand syntax might not work for all programs, as some
-    expect "--key value", or even "-key=value" (e.g. find).
-    """
-    def __init__(self, env, name, arg = None, kw = None):
+    Arguments are sent in as a list of strings and dictionaries.
+    Elements of dictionary arguments are converted into --key=value
+    pairs. Note that this short hand syntax might not work for all
+    programs, as some expect "--key value", or even "-key=value" (e.g.
+    find). """
+    def __init__(self, env, arg = None):
         Pipeline.__init__(self, env)
-        self.name = name
-        self.arg = arg or []
-        self.kw = kw or {}
+        self.arg = arg and list(arg) or []
         self.running_process = None
     def __deepcopy__(self, memo = {}):
-        return type(self)(self.env, self.name, copy.deepcopy(self.arg), copy.deepcopy(self.kw))
+        return type(self)(self.env, copy.deepcopy(self.arg))
     def __call__(self, *arg, **kw):
         """Appends a set of arguments to the argument list
 
@@ -213,11 +212,12 @@ class Command(Pipeline):
 
         is equivalent to
 
-            Command(env, "mycommand", ["input_filename", "--verbose=3", "--destination=output"])
+            Command(env, ["mycommand", "input_filename", "--verbose=3", "--destination=output"])
         """
-        nkw = dict(self.kw)
-        nkw.update(kw)
-        return type(self)(self.env, self.name, self.arg + list(arg), nkw)
+        arg = list(arg)
+        if kw:
+            arg += [kw]
+        return type(self)(self.env, self.arg + arg)
     def __getattr__(self, name):
         """Append a name to the argument list, such that e.g.
 
@@ -227,19 +227,29 @@ class Command(Pipeline):
 
             env.git("status", "--help")
         """
-        return type(self)(self.env, self.name, self.arg + [name], self.kw)
+        return type(self)(self.env, self.arg + [name])
     def _repr(self):
-        args = []
-        if self.arg:
-            args += [repr(arg) for arg in self.arg]
-        if self.kw:
-            args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
+        args = self.arg or []
+
+        for prefix_idx in xrange(0, len(args) + 1):
+            if prefix_idx == len(args):
+                break
+            if not isinstance(args[prefix_idx], (str, unicode)) or not re.match(r"^[a-zA-Z]*$", args[prefix_idx]):
+                break
+
+        if prefix_idx:
+            prefix = '.'.join(args[:prefix_idx])
+        else:
+            prefix = "_"
+        args = args[prefix_idx:]
+
+        args = [repr(arg) for arg in args]
 
         running_process = ''
         if self.running_process:
             running_process = ' as ' + repr(self.running_process)
 
-        return u"%s(%s)%s" % (self.name, ', '.join(args), running_process)
+        return u"%s(%s)%s" % (prefix, ', '.join(args), running_process)
 
     def arg_list(self, redirects = None, sess = None, indentation = ""):
         def handle_arg_pipes(item):
@@ -247,12 +257,14 @@ class Command(Pipeline):
                 return self.handle_arg_pipes(item, redirects, sess, indentation)
             else:
                 return "/dev/fd/X"
-        args = [self.name]
+        args = []
         if self.arg:
-            args += [handle_arg_pipes(item) for item in self.arg]
-        if self.kw:
-            args += ["--%s=%s" % (name, handle_arg_pipes(value))
-                     for (name, value) in self.kw.iteritems()]
+            for arg in self.arg:
+                if isinstance(arg, dict):
+                    for name, value in arg.iteritems():
+                        args.append("--%s=%s" % (name, handle_arg_pipes(value)))
+                else:
+                    args.append(handle_arg_pipes(arg))
         return args
 
     def arg_list_sh(self, *arg, **kw):
