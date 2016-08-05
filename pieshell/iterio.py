@@ -43,16 +43,18 @@ class IOManager(object):
         self._do_cleanup()
         if debug: print "DEREGISTER", io_handler.fd, io_handler
     
-    def handle_io(self):
+    def handle_io(self, timeout = None):
         while self.io_handlers:
-            events = self.poll.poll()
+            events = self.poll.poll(timeout)
             if debug: print "EVENTS", events
-            assert events
+            assert timeout is not None or events
             done = False
             for fd, event in events:
                 event_done = self.io_handlers[fd].handle_event(event)
                 done = done or event_done
             if done:
+                return
+            if timeout is not None:
                 return
 
 io_managers = threading.local()
