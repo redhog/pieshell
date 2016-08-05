@@ -213,21 +213,7 @@ class SignalManager(IOHandler):
             for siginfo in siginfos:
                 if debug:
                     print "Signal"
-                    for key in siginfo:
-                        val = siginfo[key]
-                        if key == "ssi_code":
-                            val = {
-                                1: "CLD_EXITED",
-                                2: "CLD_KILLED",
-                                3: "CLD_DUMPED",
-                                4: "CLD_TRAPPED",
-                                5: "CLD_STOPPED",
-                                6: "CLD_CONTINUED"}.get(val, val)
-                        if (   key == "ssi_signo"
-                            or (key == "ssi_status"
-                                and siginfo["ssi_code"] != CLD_EXITED)):
-                            val = [name for name in dir(signal)
-                                   if getattr(signal, name) == val][0]
+                    for key, val in siginfo_to_names(siginfo).iteritems():
                         print "    ", key, val
 
                 for key, signal_handler in self.signal_handlers.items():
@@ -243,6 +229,25 @@ CLD_TRAPPED = 4   # Traced child has trapped.
 CLD_STOPPED = 5   # Child has stopped.
 CLD_CONTINUED = 6 # Stopped child has continued.
 
+def siginfo_to_names(siginfo):
+    siginfo = dict(siginfo)
+    for key in siginfo:
+        val = siginfo[key]
+        if key == "ssi_code":
+            val = {
+                1: "CLD_EXITED",
+                2: "CLD_KILLED",
+                3: "CLD_DUMPED",
+                4: "CLD_TRAPPED",
+                5: "CLD_STOPPED",
+                6: "CLD_CONTINUED"}.get(val, val)
+        if (   key == "ssi_signo"
+            or (key == "ssi_status"
+                and siginfo["ssi_code"] != CLD_EXITED)):
+            val = [name for name in dir(signal)
+                   if getattr(signal, name) == val][0]
+        siginfo[key] = val
+            
 def get_sigchlds():
     try:
         while True:
@@ -318,12 +323,14 @@ class SignalIteratorHandler(SignalHandler):
 
 class ProcessSignalHandler(SignalHandler):
     def __init__(self, pid):
+        self.last_event = None
         self.is_running = True
         self.pid = pid
         SignalHandler.__init__(self, {"ssi_pid": pid})
 
     def handle_event(self, event):
         if debug: print "Process event", self.pid
+        self.last_event = event
         if event["ssi_code"] == CLD_EXITED:
             if debug: print "EXIT", self.pid
             self.is_running = False

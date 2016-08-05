@@ -28,13 +28,26 @@ class RunningPipeline(object):
         while reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
             iterio.get_io_manager().handle_io()
 
-class RunningProcess(object):
-    def __init__(self, pid):
-        self.pid = pid
-        self.signalhandler = iterio.ProcessSignalHandler(pid)
-    @property
-    def is_running(self):
-        return self.signalhandler.is_running
+    def __repr__(self):
+        return ', '.join(repr(proc) for proc in self.processes)
+
+class RunningProcess(iterio.ProcessSignalHandler):
+    def __repr__(self):
+        status = []
+        last_event = self.last_event
+        if last_event:
+            last_event = iterio.siginfo_to_names(last_event)
+        if self.is_running:
+            if last_event and last_event["ssi_code"] != 'CLD_CONTINUED':
+                status.append("status=%s" % self.last_event["ssi_code"])
+                status.append("signal=%s" % self.last_event["ssi_status"])
+        else:
+            status.append("exit_code=%s" % self.last_event["ssi_status"])
+        if status:
+            status = ' (' + ', '.join(status) + ')'
+        else:
+            status = ''
+        return '%s%s' % (self.pid, status)
 
 # help() doesn't let you override help on objects, only on classes, so
 # make everything a class...
