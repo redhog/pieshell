@@ -31,7 +31,6 @@ class RunningPipeline(object):
 class RunningProcess(object):
     def __init__(self, pid):
         self.pid = pid
-        print "SIGHANDLER", pid
         self.signalhandler = iterio.ProcessSignalHandler(pid)
     @property
     def is_running(self):
