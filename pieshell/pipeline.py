@@ -63,6 +63,7 @@ class Pipeline(DescribableObject):
     print_state = threading.local()
     def __init__(self, env):
         self.env = env
+        self.started = False
     def __deepcopy__(self, memo = {}):
         return type(self)(self.env)
     def _coerce(self, thing, direction):
@@ -101,6 +102,9 @@ class Pipeline(DescribableObject):
         return file | self
     def __add__(self, other):
         return Group(self.env, self, other)
+
+    def _run(self, redirects, sess, indentation = ""):
+        self.started = True
 
     def run(self, redirects = []):
         """Runs the pipelines with the specified redirects and returns
@@ -153,7 +157,7 @@ class Pipeline(DescribableObject):
         non-interactive, returns a string representation of the
         pipeline without running it."""
 
-        if self.env.interactive and getattr(Pipeline.print_state, "in_repr", 0) < 1:
+        if not self.started and self.env.interactive and getattr(Pipeline.print_state, "in_repr", 0) < 1:
             self.run_interactive()
             return ''
         else:
@@ -199,6 +203,7 @@ class Command(Pipeline):
         self.name = name
         self.arg = arg or []
         self.kw = kw or {}
+        self.running_process = None
     def __deepcopy__(self, memo = {}):
         return type(self)(self.env, self.name, copy.deepcopy(self.arg), copy.deepcopy(self.kw))
     def __call__(self, *arg, **kw):
@@ -229,7 +234,12 @@ class Command(Pipeline):
             args += [repr(arg) for arg in self.arg]
         if self.kw:
             args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
-        return u"%s(%s)" % (self.name, ', '.join(args))
+
+        running_process = ''
+        if self.running_process:
+            running_process = ' as ' + repr(self.running_process)
+
+        return u"%s(%s)%s" % (self.name, ', '.join(args), running_process)
 
     def arg_list(self, redirects = None, sess = None, indentation = ""):
         def handle_arg_pipes(item):
@@ -284,6 +294,8 @@ class Command(Pipeline):
         return "/dev/fd/%s" % fd
 
     def _run(self, redirects, sess, indentation = ""):
+        Pipeline._run(self, redirects, sess, indentation)
+
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
 
@@ -348,6 +360,8 @@ class Function(Pipeline):
             return repr(thing)
 
     def _run(self, redirects, sess, indentation = ""):
+        Pipeline._run(self, redirects, sess, indentation)
+
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
 
@@ -388,6 +402,8 @@ class Pipe(Pipeline):
     def _repr(self):
         return u"%s | %s" % (repr(self.src), repr(self.dst))
     def _run(self, redirects, sess, indentation = ""):
+        Pipeline._run(self, redirects, sess, indentation)
+
         log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
         src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), sess, indentation + "  ")
         dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), sess, indentation + "  ")
@@ -421,6 +437,8 @@ class CmdRedirect(Pipeline):
     def _repr(self):
         return u"%s with %s" % (Pipeline.repr(self.pipeline), repr(self.cmd_redirects))
     def _run(self, redirects, sess, indentation = ""):
+        Pipeline._run(self, redirects, sess, indentation)
+
         log.log(indentation + "Running [%s] with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
 
         res = self.pipeline._run(redirects.merge(self.cmd_redirects), indentation + "  ")
