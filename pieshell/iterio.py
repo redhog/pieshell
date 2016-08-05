@@ -247,7 +247,8 @@ def siginfo_to_names(siginfo):
             val = [name for name in dir(signal)
                    if getattr(signal, name) == val][0]
         siginfo[key] = val
-            
+    return siginfo
+
 def get_sigchlds():
     try:
         while True:
