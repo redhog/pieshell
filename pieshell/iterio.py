@@ -164,7 +164,7 @@ ALL_SIGNALS = set(getattr(signal, name) for name in dir(signal) if name.startswi
 class SignalManager(IOHandler):
     events = select.POLLIN
     
-    def __init__(self, mask = ALL_SIGNALS):
+    def __init__(self, mask = [signal.SIGCHLD]):
         self.mask = mask
         IOHandler.__init__(self, signalfd.signalfd(-1, mask, signalfd.SFD_CLOEXEC | signalfd.SFD_NONBLOCK))
         signalfd.sigprocmask(signalfd.SIG_BLOCK, mask)

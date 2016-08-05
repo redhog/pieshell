@@ -14,7 +14,7 @@ It can be used in two major ways:
 * As an ordinary python module replacing e.g. subprocess.Popen
 """,
     keywords = "Python shell pipelines suprocess",
-    install_requires = [],
+    install_requires = ["signalfd"],
     version = "0.0.5",
     author = "Egil Moeller",
     author_email = "egil.moller@piratpartiet.se",
