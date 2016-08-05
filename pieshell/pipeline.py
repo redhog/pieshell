@@ -199,7 +199,7 @@ class Command(Pipeline):
     expect "--key value", or even "-key=value" (e.g. find).
     """
     def __init__(self, env, name, arg = None, kw = None):
-        self.env = env
+        Pipeline.__init__(self, env)
         self.name = name
         self.arg = arg or []
         self.kw = kw or {}
@@ -341,7 +341,7 @@ class Function(Pipeline):
     a sole argument."""
 
     def __init__(self, env, function, *arg, **kw):
-        self.env = env
+        Pipeline.__init__(self, env)
         self.function = function
         self.arg = arg
         self.kw = kw
@@ -394,7 +394,7 @@ class Pipe(Pipeline):
     """Pipes the standard out of a source pipeline into the standard
     in of a destination pipeline."""
     def __init__(self, env, src, dst):
-        self.env = env
+        Pipeline.__init__(self, env)
         self.src = src
         self.dst = dst
     def __deepcopy__(self, memo = {}):
@@ -418,7 +418,7 @@ class Pipe(Pipeline):
 
 # class Group(Pipeline):
 #     def __init__(self, env, first, second):
-#         self.env = env
+#         Pipeline.__init__(self, env)
 #         self.first = first
 #         self.second = second
 #     def thread_main(self, stdin = None, stdout = None, stderr = None, *arg, **kw):
