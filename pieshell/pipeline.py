@@ -192,19 +192,31 @@ class Pipeline(DescribableObject):
     def __doc__(self):
         return ""
 
-class Command(Pipeline):
+class BaseCommand(Pipeline):
     """Runs an external program with the specified arguments.
     Arguments are sent in as a list of strings and dictionaries.
     Elements of dictionary arguments are converted into --key=value
     pairs. Note that this short hand syntax might not work for all
     programs, as some expect "--key value", or even "-key=value" (e.g.
     find). """
+    def __new__(cls, env, arg = None):
+        if cls is BaseCommand:
+            if arg:
+                builtin = Builtin.get_by_name(arg[0])
+                if builtin:
+                    cls = builtin
+                else:
+                    cls = Command
+        return Pipeline.__new__(cls, env, arg)
+
     def __init__(self, env, arg = None):
         Pipeline.__init__(self, env)
         self.arg = arg and list(arg) or []
         self.running_process = None
+
     def __deepcopy__(self, memo = {}):
         return type(self)(self.env, copy.deepcopy(self.arg))
+
     def __call__(self, *arg, **kw):
         """Appends a set of arguments to the argument list
 
@@ -218,6 +230,7 @@ class Command(Pipeline):
         if kw:
             arg += [kw]
         return type(self)(self.env, self.arg + arg)
+
     def __getattr__(self, name):
         """Append a name to the argument list, such that e.g.
 
@@ -228,6 +241,7 @@ class Command(Pipeline):
             env.git("status", "--help")
         """
         return type(self)(self.env, self.arg + [name])
+
     def _repr(self):
         args = self.arg or []
 
@@ -274,6 +288,60 @@ class Command(Pipeline):
                 arg = repr(arg)
             return arg
         return ' '.join(quote_arg(arg) for arg in self.arg_list(*arg, **kw))
+
+    def _run(self, redirects, sess, indentation = ""):
+        raise NotImplemented
+
+class Builtin(BaseCommand):
+    builtins = {}
+
+    @classmethod
+    def register(cls, builtin_cls):
+        cls.builtins[builtin_cls.name] = builtin_cls
+
+    @classmethod
+    def get_by_name(cls, name):
+        if name not in cls.builtins:
+            return None
+        return cls.builtins[name]
+
+    def _run(self, redirects, sess, indentation = ""):
+        raise NotImplemented
+
+class CdBuiltin(Builtin):
+    name = "cd"
+
+    @property
+    def _path(self):
+        pth = "~"
+        if self.arg[1:]:
+            pth = os.path.join(*self.arg[1:])
+        return pth
+
+    def _run(self, redirects, sess, indentation = ""):
+        self.env._cd(self._path)
+        return []
+
+    def __dir__(self):
+        if self.arg[1:]:
+            pth = self.env._expand_path(self._path)
+        else:
+            pth = "."
+        try:
+            return [name for name in os.listdir(pth)
+                    if os.path.isdir(os.path.join(pth, name))]
+        except:
+            return []
+
+Builtin.register(CdBuiltin)
+
+class Command(BaseCommand):
+    """Runs an external program with the specified arguments.
+    Arguments are sent in as a list of strings and dictionaries.
+    Elements of dictionary arguments are converted into --key=value
+    pairs. Note that this short hand syntax might not work for all
+    programs, as some expect "--key value", or even "-key=value" (e.g.
+    find). """
 
     def _child(self, redirects, args):
         redirects.perform()

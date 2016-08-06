@@ -25,14 +25,17 @@ class Environment(object):
         arguments as __call__."""
         self.cwd = os.getcwd()
         if cwd is not None:
-            self.cd(cwd)
+            self._cd(cwd)
         self.env = env
         self.interactive = interactive
-    def cd(self, cwd):
-        if not cwd.startswith("/") and not cwd.startswith("~"):
-            cwd = os.path.join(self.cwd, cwd)
-        cwd = os.path.expanduser(cwd)
-        cwd = os.path.abspath(cwd)
+    def _expand_path(self, pth):
+        if not pth.startswith("/") and not pth.startswith("~"):
+            pth = os.path.join(self.cwd, pth)
+        pth = os.path.expanduser(pth)
+        pth = os.path.abspath(pth)
+        return pth
+    def _cd(self, cwd):
+        cwd = self._expand_path(cwd)
         if not os.path.exists(cwd):
             raise IOError("Path does not exist: %s" % cwd)
         self.cwd = cwd
@@ -68,9 +71,9 @@ class Environment(object):
         """Creates a pipeline of one command in the current
         environment."""
         if name == "_":
-            return pipeline.Command(self)
+            return pipeline.BaseCommand(self)
         else:
-            return pipeline.Command(self, [name])
+            return pipeline.BaseCommand(self, [name])
     def __repr__(self):
         """Prints the current prompt"""
         if self.interactive:
