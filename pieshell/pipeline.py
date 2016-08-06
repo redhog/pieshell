@@ -115,7 +115,9 @@ class Pipeline(DescribableObject):
         with copy.copy_session() as sess:
             self = copy.deepcopy(self)
             processes = self._run(redirects, sess)
-        return RunningPipeline(processes, self)
+        pipeline = RunningPipeline(processes, self)
+        self.env.last_pipeline = pipeline
+        return pipeline
 
     def run_interactive(self):
         try:
