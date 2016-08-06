@@ -328,7 +328,7 @@ class Command(BaseCommand):
         if isinstance(thing, Pipeline):
             direction = "stdout"
         elif isinstance(thing, types.FunctionType):
-            thing = Function(thing)
+            thing = Function(self.env, thing)
             direction = "stdin"
         elif hasattr(thing, "__iter__") or hasattr(thing, "next"):
             thing = Function(self.env, thing)
@@ -403,14 +403,17 @@ class Function(Pipeline):
     def __deepcopy__(self, memo = {}):
         return type(self)(self.env, self.function, *copy.deepcopy(self.arg), **copy.deepcopy(self.kw))
     def _repr(self):
-        thing = self.function
+        thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, types.FunctionType):
             args = []
             if self.arg:
                 args += [repr(arg) for arg in self.arg]
             if self.kw:
                 args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
-            return u"%s.%s.%s(%s)" % (self.function.__module__, self.function.func_name, ','.join(args))
+            mod = thing.__module__ or ''
+            if mod:
+                mod = mod + '.'
+            return u"%s%s(%s)" % (mod, thing.func_name, ','.join(args))
         else:
             return repr(thing)
 
