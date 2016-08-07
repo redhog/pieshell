@@ -5,6 +5,7 @@ import threading
 import signalfd
 import signal
 import errno
+import log
 
 debug = False
 
@@ -31,7 +32,7 @@ class IOManager(object):
     def register(self, io_handler):
         self.poll.register(io_handler.fd, io_handler.events)
         self.io_handlers[io_handler.fd] = io_handler
-        if debug: print "REGISTER", io_handler.fd, io_handler.events, io_handler
+        log.log("REGISTER %s, %s, %s" % (io_handler.fd, io_handler.events, io_handler), "ioreg")
 
     def _do_cleanup(self):
         while self.delay == 0 and not len(self.io_handlers) and self.cleanup:
@@ -41,12 +42,12 @@ class IOManager(object):
         self.poll.unregister(io_handler.fd)
         del self.io_handlers[io_handler.fd]
         self._do_cleanup()
-        if debug: print "DEREGISTER", io_handler.fd, io_handler
+        log.log("DEREGISTER %s, %s" % (io_handler.fd, io_handler), "ioreg")
     
     def handle_io(self, timeout = None):
         while self.io_handlers:
             events = self.poll.poll(timeout)
-            if debug: print "EVENTS", events
+            log.log("EVENTS %s" % (events,), "ioevent")
             assert timeout is not None or events
             done = False
             for fd, event in events:
@@ -86,7 +87,7 @@ class IOHandler(object):
         pass
     def destroy(self):
         get_io_manager().deregister(self)
-        if debug: print "CLOSE DESTROY", self.fd, self
+        log.log("CLOSE DESTROY %s, %s" % (self.fd, self), "ioreg")
         os.close(self.fd)
 
 class OutputHandler(IOHandler):
@@ -125,9 +126,9 @@ class LineOutputHandler(OutputHandler):
             val = self.iter.next()
             if val is not None:
                 os.write(self.fd, val + "\n")
-            if debug: print "WRITE", self.fd, val
+            log.log("WRITE %s, %s" % (self.fd, val), "io")
         except StopIteration:
-            if debug: print "STOP ITERATION", self.fd
+            log.log("STOP ITERATION %s" % self.fd, "ioevent")
             self.destroy()
 
 class InputHandler(IOHandler):
@@ -202,12 +203,12 @@ class SignalManager(IOHandler):
 
         key = self.filter_to_key(signal_handler.filter)
         self.signal_handlers[key] = signal_handler
-        if debug: print "REGISTER", key, signal_handler
+        log.log("REGISTER %s, %s" % (key, signal_handler), "signalreg")
 
     def deregister(self, signal_handler):
         key = self.filter_to_key(signal_handler.filter)
         del self.signal_handlers[key]
-        if debug: print "DEREGISTER", key, signal_handler
+        log.log("DEREGISTER %s, %s" % (key, signal_handler), "signalreg")
 
     def match_signal(self, siginfo, flt):
         for key, value in flt.iteritems():
@@ -329,7 +330,7 @@ class SignalHandler(object):
         pass
     def destroy(self):
         get_signal_manager().deregister(self)
-        if debug: print "CLOSE DESTROY", self.filter, self
+        log.log("CLOSE DESTROY %s, %s" % (self.filter, self), "signalreg")
     
 class SignalIteratorHandler(SignalHandler):
     def __init__(self, filter):
@@ -354,10 +355,10 @@ class ProcessSignalHandler(SignalHandler):
         SignalHandler.__init__(self, {"ssi_pid": pid})
 
     def handle_event(self, event):
-        if debug: print "Process event", self.pid
+        log.log("Process event %s" % self.pid, "signal")
         self.last_event = event
         if event["ssi_code"] == CLD_EXITED:
-            if debug: print "EXIT", self.pid
+            log.log("EXIT %s" % self.pid, "signal")
             self.is_running = False
             self.destroy()
             return True

@@ -4,7 +4,12 @@ import sys
 debug = {
     "all": False,
     "fd": False,
-    "cmd": False
+    "cmd": False,
+    "ioreg": False,
+    "ioevent": False,
+    "io": False,
+    "signalreg": False,
+    "signal": False
     }
 
 logfd = 1023
