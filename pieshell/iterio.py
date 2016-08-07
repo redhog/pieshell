@@ -50,7 +50,11 @@ class IOManager(object):
             assert timeout is not None or events
             done = False
             for fd, event in events:
-                event_done = self.io_handlers[fd].handle_event(event)
+                # Check if the fd is still registered. If we have
+                # multiple events for the same fd, this might not be
+                # the case for the second event...
+                if fd in self.io_handlers:
+                    event_done = self.io_handlers[fd].handle_event(event)
                 done = done or event_done
             if done:
                 return
@@ -90,19 +94,37 @@ class OutputHandler(IOHandler):
 
     def __init__(self, fd, iter):
         self.iter = iter
+        self.handling_event = False
+        self.is_running = True
         IOHandler.__init__(self, fd)
 
+    def destroy(self):
+        self.is_running = False
+        IOHandler.destroy(self)
+
     def handle_event(self, event):
+        if self.handling_event:
+            return
+        self.handling_event = True
         try:
-            os.write(self.fd, self.iter.next())
+            return self.handle_event_nonrecursive(event)
+        finally:
+            self.handling_event = False
+
+    def handle_event_nonrecursive(self, event):
+        try:
+            val = self.iter.next()
+            if val is not None:
+                os.write(self.fd, val)
         except StopIteration:
             self.destroy()
 
 class LineOutputHandler(OutputHandler):
-    def handle_event(self, event):
+    def handle_event_nonrecursive(self, event):
         try:
             val = self.iter.next()
-            os.write(self.fd, val + "\n")
+            if val is not None:
+                os.write(self.fd, val + "\n")
             if debug: print "WRITE", self.fd, val
         except StopIteration:
             if debug: print "STOP ITERATION", self.fd

@@ -401,7 +401,7 @@ class Function(Pipeline):
         self.arg = arg
         self.kw = kw
     def __deepcopy__(self, memo = {}):
-        return type(self)(self.env, self.function, *copy.deepcopy(self.arg), **copy.deepcopy(self.kw))
+        return type(self)(self.env, self.__dict__["function"], *copy.deepcopy(self.arg), **copy.deepcopy(self.kw))
     def _repr(self):
         thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, types.FunctionType):
@@ -431,7 +431,7 @@ class Function(Pipeline):
             else:
                 return unicode(x).encode("utf-8")
 
-        thing = self.function
+        thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, types.FunctionType):
             thing = thing(
                 iterio.LineInputHandler(redirects.stdin.open()),
@@ -442,7 +442,7 @@ class Function(Pipeline):
         self.running_process = iterio.LineOutputHandler(
             redirects.stdout.open(),
             (convert(x) for x in thing))
-
+        
         self.redirects = self.running_process.redirects = redirects
 
         return [self.running_process]
