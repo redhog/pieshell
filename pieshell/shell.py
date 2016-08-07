@@ -87,10 +87,10 @@ pieshell --ptpython
             environ.envScope.execute_startup()
 
             if "cmd" in kws:
-                environ.execute_expr(kws["cmd"])
+                environ.envScope.execute_expr(kws["cmd"])
             elif args:
                 for arg in args:
-                    environ.execute_file(arg)
+                    environ.envScope.execute_file(arg)
             else:
                 if kws.get("ptpython", False):
                     import pieshell.monkeypatches.patch_jedi
