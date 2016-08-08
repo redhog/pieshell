@@ -38,16 +38,34 @@ another works just like in bash
     140:/home/redhog/Projects/beta/pieshell >>> ls("-a") | grep("-e", ".py")
     setup.py
 
-Changing directory is done using the command cd just like in any shell
+Changing directory is done using the command cd:
 
     140:/home/redhog/Projects/beta/pieshell >>> cd("..")
     140:/home/redhog/Projects/beta >>> 
 
+## Full syntsax for command lines
+
 To execute commands that require a path, for example ones in the current directory, or commands with a dot in their names
 
-    140:/home/redhog/Projects/beta/pieshell >>> getattr(env, "./setup.py")("--help")
+    140:/home/redhog/Projects/beta/pieshell >>> _("./setup.py", "--help")
     Common commands: (see '--help-commands' for more)
     ...
+
+The underscore represents the virtual root command that has no parameters, not even a command name. In general, there are two equivalent syntaxes for parameters: as function parameter strings, and as attribute names. The two syntaxes can be mixed freely. All of the following are equivalent:
+
+    _("foo", "bar", "fie")
+    _.foo("bar", "fie")
+    _.foo.bar.fie()
+    foo.bar.fie()
+    foo.bar.fie
+
+Example usage:
+
+    git.diff("-U")
+
+In addition to these two generic syntaxes, the function call syntax also supports named parameters, which are converted into "--name=value" pairs. Note that the order can not be guaranteed as named parameters are sent around as dictionaries inside python:
+
+    git.diff(unified=4)
 
 ## Redirects
 
@@ -160,22 +178,7 @@ When running pieshell in interactive mode it executes
 configure the interactive environment the same way ~/.bashrc can be
 used to configure the bash shell. For example it can be used to load
 python modules, execute shell pipelines or set environment variables.
-
-If you have previously used bash, and have a .bashrc that sets a lot
-of environment variables, possibly by source:ing external scripts
-provided by various software packages, it might be useful to load
-those environment variables into pieshell automatically. This can be
-achieved with the following code in ~/.config/pieshell
-
-    decls = {}
-    for decl in bash("-c", "declare -x"):
-        if "=" not in decl: continue
-        name, value = decl[len("declare -x "):].split("=", 1)    
-        decls[name] = value.strip("\"")
-
-    env = env(env=decls)
-
-Note that this will execute bash every time you start pieshell.
+An example config file is supplied in contrib/cofig.
 
 # Copyright
 
