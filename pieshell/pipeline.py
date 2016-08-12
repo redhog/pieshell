@@ -160,7 +160,7 @@ class Pipeline(DescribableObject):
         non-interactive, returns a string representation of the
         pipeline without running it."""
 
-        if not self.started and self.env.interactive and getattr(Pipeline.print_state, "in_repr", 0) < 1:
+        if not self.started and self.env._interactive and getattr(Pipeline.print_state, "in_repr", 0) < 1:
             self.run_interactive()
             return ''
         else:
@@ -322,8 +322,8 @@ class Command(BaseCommand):
 
     def _child(self, redirects, args):
         redirects.perform()
-        os.chdir(self.env.cwd)
-        os.execvpe(args[0], args, self.env.env)
+        os.chdir(self.env._cwd)
+        os.execvpe(args[0], args, self.env._exports)
         os._exit(-1)
 
     def handle_arg_pipes(self, thing, redirects, sess, indentation):
