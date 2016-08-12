@@ -140,7 +140,11 @@ class EnvScope(dict):
             name = "last_statement"
         if name == "env":
             value._scope = self
-        dict.__setitem__(self, name, value)
+        env = dict.__getitem__(self, 'env')
+        if name in env._exports:
+            env._exports[name] = value
+        else:
+            dict.__setitem__(self, name, value)
     def __getitem__(self, name):
         try:
             return dict.__getitem__(self, name)

@@ -141,6 +141,50 @@ lines, or the standard output of the pipeline.
     140:/home/redhog/Projects/beta/pieshell >>> list(cat(["foo", "bar"] | cat))
     ['foo', 'bar']
 
+## Environment variables
+
+Environment variables are available directly in the shell as
+variables, together with any local python variables. In addition, they
+are available in the dictionary exports.
+
+    140:/home/redhog/Projects/beta/pieshell >>> LANG
+    'en_US.UTF-8'
+
+Assigning to the name of an already exported environment variable
+updates the value of that variable.
+
+    140:/home/redhog/Projects/beta/pieshell >>> LANG = "sv_SE.UTF-8"
+    140:/home/redhog/Projects/beta/pieshell >>> exports["LANG"]
+    'sv_SE.UTF-8'
+
+Assigning to a variable name not already used as an environment
+variable creates a local python variable.
+
+    140:/home/redhog/Projects/beta/pieshell >>> foo = "hello"
+    140:/home/redhog/Projects/beta/pieshell >>> "foo" in exports
+    False
+    140:/home/redhog/Projects/beta/pieshell >>> foo
+    'hello'
+
+To export a new variable, you have to assign it in the exports
+dictionary.
+
+    140:/home/redhog/Projects/beta/pieshell >>> exports["bar"] = "world"
+    140:/home/redhog/Projects/beta/pieshell >>> bar
+    'world'
+
+## Argument expansion
+
+All parameter strings in commands are subject to expansion unless
+wrapped in a call to R(), e.g. R("my * string * here")ñ.
+
+  * "~" and "~username" are expanded using os.path.expanduser()
+
+  * Variable expansion is done using the python % operator on python
+    variables as well as environment variables.
+
+  * Pattern matching is done using glob.glob()
+
 
 # As a python module
 
@@ -170,6 +214,16 @@ siumultaneously, even within the same pipeline
 
     >>> env2 = env()
     >>> env2.cd("somedir")
+
+## Environment variables
+
+Environment variables are available as a dictionary in env._exports.
+
+## Argument expansion
+
+Variable expansion is only done on environment variables, as there is
+no way for pieshell to find out about the right scope to do variable
+lookups in in any given situation.
 
 # Configuration
 

@@ -1,53 +1,63 @@
-import os
-import threading
-import getpass
-import socket
+if True:
+    import os
+    import threading
+    import getpass
+    import socket
 
-# Load environment variables from bash
-for decl in bash("-l", "-i", "-c", "declare -x"):
-    if "=" not in decl: continue
-    name, value = decl[len("declare -x "):].split("=", 1)    
-    os.environ[name] = value.strip("\"")
+    # Make the default repr() in the shell operate as expected on pipelines
+    repr = pipeline.Pipeline.repr
 
-# If we're in a git repo directory: Calculate the current branch and status
-def parse_git_branch(env):
-    ref = unicode(env.git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null"))
-    if ref == "":
-        rev = unicode((env.git("rev-parse", "HEAD") | env.sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null"))
-    if ref == "":
-        return ""
-    changes=int(unicode(env.git("status", "--porcelain") | env.wc("-l")))
-    if changes > 0:
-        changes=" +%s" % changes
-    else:
-        changes=""
-    if ref.startswith("refs/heads/"):
-        ref = ref[len("refs/heads/"):]
-    return "[%s%s]" % (ref, changes)
+    # Load environment variables from bash
+    for decl in bash("-l", "-i", "-c", "declare -x"):
+        if "=" not in decl: continue
+        name, value = decl[len("declare -x "):].split("=", 1)    
+        os.environ[name] = value.strip("\"")
 
-# Turn /home/MYUSERNAME/foo/bar into ~/foo/bar
-def compress_user(path):
-    home = os.path.expanduser('~')
-    if path.startswith(home):
-        path =  "~" + path[len(home):]
-    return path
+    # If we're in a git repo directory: Calculate the current branch and status
+    def parse_git_branch(env):
+        ref = unicode(env.git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null"))
+        if ref == "":
+            rev = unicode((env.git("rev-parse", "HEAD") | env.sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null"))
+        if ref == "":
+            return ""
+        changes=int(unicode(env.git("status", "--porcelain") | env.wc("-l")))
+        if changes > 0:
+            changes=" +%s" % changes
+        else:
+            changes=""
+        if ref.startswith("refs/heads/"):
+            ref = ref[len("refs/heads/"):]
+        return "[%s%s]" % (ref, changes)
 
-# Define a new prompt "USER@HOST:PATH[GITBRANCH+CHANGES] >>>"
+    # Turn /home/MYUSERNAME/foo/bar into ~/foo/bar
+    def compress_user(path):
+        home = os.path.expanduser('~')
+        if path.startswith(home):
+            path =  "~" + path[len(home):]
+        return path
 
-# The prompt_state is used so that debug loggin from pipelines run
-# from within the prompt function, won't use the same prompt function
-# and recurse endlessly.
+    # Define a new prompt "USER@HOST:PATH[GITBRANCH+CHANGES] >>>"
 
-prompt_state = threading.local()
+    # The prompt_state is used so that debug loggin from pipelines run
+    # from within the prompt function, won't use the same prompt function
+    # and recurse endlessly.
 
-old_prompt = Environment.__repr__
-def prompt(self):
-    if getattr(prompt_state, "in_prompt", False):
-        return old_prompt(self)
-    prompt_state.in_prompt = True
-    try:
-        return "%s@%s:%s%s >>> " % (getpass.getuser(), socket.gethostname(), compress_user(self.cwd), parse_git_branch(env))
-    finally:
-        prompt_state.in_prompt = False
+    prompt_state = threading.local()
 
-Environment.__repr__ = prompt
+    old_prompt = Environment.__repr__
+    def prompt(self):
+        if getattr(prompt_state, "in_prompt", False):
+            return old_prompt(self)
+        prompt_state.in_prompt = True
+        try:
+            return "%s@%s:%s%s >>> " % (getpass.getuser(), socket.gethostname(), compress_user(self._cwd), parse_git_branch(self))
+        finally:
+            prompt_state.in_prompt = False
+
+    Environment.__repr__ = prompt
+
+    kws['ptpython'] = True
+
+    # import sys
+    # if sys.argv[0].startswith('-'):
+    #   pass
