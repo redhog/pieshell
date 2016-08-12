@@ -20,7 +20,7 @@ It can be used in two major ways:
 * [As a python module](#as-a-python-module)
   * [Environment variables](#environment-variables-1)
   * [Argument expansion](#argument-expansion-1)
-* [Configuration](#donfiguration)
+* [Configuration](#configuration)
 * [Copyright](#copyright)
 
 
