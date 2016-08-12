@@ -8,6 +8,22 @@ It can be used in two major ways:
 * As an interactive shell replacing e.g. bash
 * As an ordinary python module replacing e.g. subprocess.Popen
 
+# Table of contents
+
+* [As a shell](#as-a-shell)
+  * [Executing basic commands](#executing-basic-commands)
+  * [Full syntsax for command lines](#full-syntsax-for-command-lines)
+  * [Redirects](#redirects)
+  * [Interfacing between python functions and shell commands](#interfacing-between-python-functions-and-shell-commands)
+  * [Environment variables](#environment-variables)
+  * [Argument expansion](#argument-expansion)
+* [As a python module](#as-a-python-module)
+  * [Environment variables](#environment-variables-1)
+  * [Argument expansion](#argument-expansion-1)
+* [Configuration](#donfiguration)
+* [Copyright](#copyright)
+
+
 # As a shell
 
 ## Executing basic commands
