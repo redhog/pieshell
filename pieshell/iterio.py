@@ -30,16 +30,22 @@ class IOManager(object):
         self._do_cleanup()
 
     def register(self, io_handler):
-        self.poll.register(io_handler.fd, io_handler.events)
+        self.enable(io_handler)
         self.io_handlers[io_handler.fd] = io_handler
         log.log("REGISTER %s, %s, %s" % (io_handler.fd, io_handler.events, io_handler), "ioreg")
+
+    def enable(self, io_handler):
+        self.poll.register(io_handler.fd, io_handler.events)
+
+    def disable(self, io_handler):
+        self.poll.unregister(io_handler.fd)
 
     def _do_cleanup(self):
         while self.delay == 0 and not len(self.io_handlers) and self.cleanup:
             self.cleanup.pop()()
 
     def deregister(self, io_handler):
-        self.poll.unregister(io_handler.fd)
+        self.disable(io_handler)
         del self.io_handlers[io_handler.fd]
         self._do_cleanup()
         log.log("DEREGISTER %s, %s" % (io_handler.fd, io_handler), "ioreg")
@@ -82,6 +88,7 @@ class IOHandler(object):
     events = 0
     def __init__(self, fd):
         self.fd = fd
+        self.enabled = True
         get_io_manager().register(self)
     def handle_event(self, event):
         pass
@@ -89,13 +96,19 @@ class IOHandler(object):
         get_io_manager().deregister(self)
         log.log("CLOSE DESTROY %s, %s" % (self.fd, self), "ioreg")
         os.close(self.fd)
+    def enable(self):
+        self.enabled = True
+        get_io_manager().enable(self)
+    def disable(self):
+        self.enabled = False
+        get_io_manager().enable(self)
+
 
 class OutputHandler(IOHandler):
     events = select.POLLOUT
 
     def __init__(self, fd, iter):
         self.iter = iter
-        self.handling_event = False
         self.is_running = True
         IOHandler.__init__(self, fd)
 
@@ -104,13 +117,11 @@ class OutputHandler(IOHandler):
         IOHandler.destroy(self)
 
     def handle_event(self, event):
-        if self.handling_event:
-            return
-        self.handling_event = True
+        self.disable()
         try:
             return self.handle_event_nonrecursive(event)
         finally:
-            self.handling_event = False
+            self.enable()
 
     def handle_event_nonrecursive(self, event):
         try:

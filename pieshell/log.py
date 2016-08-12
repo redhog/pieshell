@@ -4,9 +4,9 @@ import sys
 debug = {
     "all": False,
     "fd": False,
-    "cmd": False,
-    "ioreg": False,
-    "ioevent": False,
+    "cmd": True,
+    "ioreg": True,
+    "ioevent": True,
     "io": False,
     "signalreg": False,
     "signal": False
