@@ -1,9 +1,20 @@
 import os
 import sys
+import traceback
+import glob
 
 from . import pipeline
-import traceback
 import pieshell
+
+
+class R(object):
+    """Wraps a string and protects it from path expansions"""
+    def __init__(self, str):
+        self.str = str
+    def __getattr__(self, name):
+        return getattr(self.str, name)
+    def __repr__(self):
+        return "R(%s)" % (repr(self.str),)
 
 class Environment(object):
     """An environment within which a command or pipeline can run. The
@@ -28,12 +39,38 @@ class Environment(object):
             self._cd(cwd)
         self.env = env
         self.interactive = interactive
+        self._scope = None
+    @property
+    def env(self):
+        return self._env or os.environ
+    @env.setter
+    def env(self, env):
+        self._env = env
+    @env.deleter
+    def env(self):
+        self._env = None
     def _expand_path(self, pth):
         if not pth.startswith("/") and not pth.startswith("~"):
             pth = os.path.join(self.cwd, pth)
         pth = os.path.expanduser(pth)
         pth = os.path.abspath(pth)
         return pth
+    def _expand_argument(self, arg):
+        """Performs argument glob expansion on an argument string.
+        Returns a list of strings.
+        """
+        if isinstance(arg, R): return [arg.str]
+        scope = self._scope or self.env
+        arg = arg % scope
+        arg = os.path.expanduser(arg)
+        relative = not arg.startswith("/")
+        res = glob.glob(self._expand_path(arg))
+        if not res: res = [arg]
+        if self.cwd != "/":
+            for idx in xrange(0, len(res)):
+                if res[idx].startswith(self.cwd + "/"):
+                    res[idx] = res[idx][len(self.cwd + "/"):]
+        return res
     def _cd(self, cwd):
         cwd = self._expand_path(cwd)
         if not os.path.exists(cwd):
@@ -97,13 +134,20 @@ class EnvScope(dict):
     """EnvScope can be used instead of a globals() dictionary to allow
     global lookup of command names, without the env.COMMAND
     prefixing."""
+    def __setitem__(self, name, value):
+        if name == "env":
+            value._scope = self
+        dict.__setitem__(self, name, value)
     def __getitem__(self, name):
         try:
             return dict.__getitem__(self, name)
         except KeyError:
             if name != "_" and name in __builtins__:
                 raise
-            return getattr(dict.__getitem__(self, 'env'), name)
+            env = dict.__getitem__(self, 'env')
+            if name in env.env:
+                return env.env[name]
+            return getattr(env, name)
 
     def keys(self):
         return dict.keys(self) + dict.__getitem__(self, 'env').keys()

@@ -278,9 +278,11 @@ class BaseCommand(Pipeline):
             for arg in self.arg:
                 if isinstance(arg, dict):
                     for name, value in arg.iteritems():
-                        args.append("--%s=%s" % (name, handle_arg_pipes(value)))
+                        for match in self.env._expand_argument(value):
+                            args.append("--%s=%s" % (name, handle_arg_pipes(match)))
                 else:
-                    args.append(handle_arg_pipes(arg))
+                    for match in self.env._expand_argument(arg):
+                        args.append(handle_arg_pipes(match))
         return args
 
     def arg_list_sh(self, *arg, **kw):
