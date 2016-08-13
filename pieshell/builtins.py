@@ -30,7 +30,7 @@ class CdBuiltin(pipeline.Builtin):
         except:
             return []
 
-pipeline.Builtin.register(CdBuiltin)
+pipeline.BuiltinRegistry.register(CdBuiltin)
 
 
 class BashSource(pipeline.Builtin):
@@ -54,4 +54,4 @@ class BashSource(pipeline.Builtin):
             name, value = decl[len("declare -x "):].split("=", 1)    
             self.env.env[name] = value.strip("\"")
 
-pipeline.Builtin.register(BashSource)
+pipeline.BuiltinRegistry.register(BashSource)

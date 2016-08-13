@@ -13,11 +13,29 @@ import signal
 import signalfd
 import operator
 import re
+import __builtin__        
 
 from . import copy
 from . import iterio
 from . import redir
 from . import log
+
+
+repr_state = threading.local()
+standard_repr = __builtin__.repr
+def pipeline_repr(obj):
+    """Returns a string representation of an object, including pieshell
+    pipelines."""
+
+    if not hasattr(repr_state, 'in_repr'):
+        repr_state.in_repr = 0
+    repr_state.in_repr += 1
+    try:
+        return standard_repr(obj)
+    finally:
+        repr_state.in_repr -= 1
+__builtin__.repr = pipeline_repr
+
 
 class RunningPipeline(object):
     def __init__(self, processes, pipeline):
@@ -61,12 +79,12 @@ class DescribableObject(type):
 class Pipeline(DescribableObject):
     """Abstract base class for all pipelines"""
 
-    print_state = threading.local()
+    _print_state = threading.local()
     def __init__(self, env):
-        self.env = env
-        self.started = False
+        self._env = env
+        self._started = False
     def __deepcopy__(self, memo = {}):
-        return type(self)(self.env)
+        return type(self)(self._env)
     def _coerce(self, thing, direction):
         if thing is None:
             thing = "/dev/null"
@@ -75,7 +93,7 @@ class Pipeline(DescribableObject):
         if isinstance(thing, redir.Redirect):
             thing = redir.Redirects(thing, defaults=False)
         if not isinstance(thing, Pipeline) and (isinstance(thing, types.FunctionType) or hasattr(thing, "__iter__") or hasattr(thing, "next")):
-            thing = Function(self.env, thing)
+            thing = Function(self._env, thing)
         if not isinstance(thing, (Pipeline, redir.Redirects)):
             raise ValueError(type(thing))
         return thing
@@ -84,17 +102,17 @@ class Pipeline(DescribableObject):
         of this pipeline."""
         other = self._coerce(other, 'stdin')
         if isinstance(other, redir.Redirects):
-            return CmdRedirect(self.env, self, other)
+            return CmdRedirect(self._env, self, other)
         else:
-            return Pipe(self.env, other, self)
+            return Pipe(self._env, other, self)
     def __or__(self, other):
         """Pipes the standard out of the pipeline into the standrad in
         of another pipeline."""
         other = self._coerce(other, 'stdout')
         if isinstance(other, redir.Redirects):
-            return CmdRedirect(self.env, self, other)
+            return CmdRedirect(self._env, self, other)
         else:
-            return Pipe(self.env, self, other)
+            return Pipe(self._env, self, other)
     def __gt__(self, file):
         """Redirects the standard out of the pipeline to a file."""
         return self | file
@@ -102,10 +120,10 @@ class Pipeline(DescribableObject):
         """Redirects the standard in of the pipeline from a file."""
         return file | self
     def __add__(self, other):
-        return Group(self.env, self, other)
+        return Group(self._env, self, other)
 
     def _run(self, redirects, sess, indentation = ""):
-        self.started = True
+        self._started = True
 
     def run(self, redirects = []):
         """Runs the pipelines with the specified redirects and returns
@@ -116,7 +134,7 @@ class Pipeline(DescribableObject):
             self = copy.deepcopy(self)
             processes = self._run(redirects, sess)
         pipeline = RunningPipeline(processes, self)
-        self.env.last_pipeline = pipeline
+        self._env.last_pipeline = pipeline
         return pipeline
 
     def run_interactive(self):
@@ -142,37 +160,25 @@ class Pipeline(DescribableObject):
     def __invert__(self):
         """Start a pipeline in the background"""
         return self.run()
-
-
-    @classmethod
-    def repr(cls, obj):
-        """Returns a string representation of the pipeline"""
-        if not hasattr(Pipeline.print_state, 'in_repr'):
-            Pipeline.print_state.in_repr = 0
-        Pipeline.print_state.in_repr += 1
-        try:
-            return repr(obj)
-        finally:
-            Pipeline.print_state.in_repr -= 1
     def __repr__(self):
         """Runs the command if the environment has interactive=True,
         sending the output to standard out. If the environment is
         non-interactive, returns a string representation of the
         pipeline without running it."""
 
-        if not self.started and self.env.interactive and getattr(Pipeline.print_state, "in_repr", 0) < 1:
+        if not self._started and self._env._interactive and getattr(repr_state, "in_repr", 0) < 1:
             self.run_interactive()
             return ''
         else:
-            current_env = getattr(Pipeline.print_state, 'env', None)
-            Pipeline.print_state.env = self.env
+            current_env = getattr(Pipeline._print_state, 'env', None)
+            Pipeline._print_state.env = self._env
             try:
                 envstr = ''
-                if current_env is not self.env:
-                    envstr = repr(self.env)
+                if current_env is not self._env:
+                    envstr = repr(self._env)
                 return "%s%s" % (envstr, self._repr())
             finally:
-                Pipeline.print_state.env = current_env
+                Pipeline._print_state.env = current_env
 
     def __dir__(self):
         return []
@@ -183,12 +189,12 @@ class Pipeline(DescribableObject):
 
     @property
     def __name__(self):
-        current_env = getattr(Pipeline.print_state, 'env', None)
-        Pipeline.print_state.env = self.env
+        current_env = getattr(Pipeline._print_state, 'env', None)
+        Pipeline._print_state.env = self._env
         try:
-            return Pipeline.repr(self)
+            return repr(self)
         finally:
-            Pipeline.print_state.env = current_env
+            Pipeline._print_state.env = current_env
 
     @property
     def __doc__(self):
@@ -204,7 +210,7 @@ class BaseCommand(Pipeline):
     def __new__(cls, env, arg = None):
         if cls is BaseCommand:
             if arg:
-                builtin = Builtin.get_by_name(arg[0])
+                builtin = BuiltinRegistry.get_by_name(arg[0])
                 if builtin:
                     cls = builtin
                 else:
@@ -213,11 +219,11 @@ class BaseCommand(Pipeline):
 
     def __init__(self, env, arg = None):
         Pipeline.__init__(self, env)
-        self.arg = arg and list(arg) or []
-        self.running_process = None
+        self._arg = arg and list(arg) or []
+        self._running_process = None
 
     def __deepcopy__(self, memo = {}):
-        return type(self)(self.env, copy.deepcopy(self.arg))
+        return type(self)(self._env, copy.deepcopy(self._arg))
 
     def __call__(self, *arg, **kw):
         """Appends a set of arguments to the argument list
@@ -231,7 +237,7 @@ class BaseCommand(Pipeline):
         arg = list(arg)
         if kw:
             arg += [kw]
-        return type(self)(self.env, self.arg + arg)
+        return type(self)(self._env, self._arg + arg)
 
     def __getattr__(self, name):
         """Append a name to the argument list, such that e.g.
@@ -242,10 +248,10 @@ class BaseCommand(Pipeline):
 
             env.git("status", "--help")
         """
-        return type(self)(self.env, self.arg + [name])
+        return type(self)(self._env, self._arg + [name])
 
     def _repr(self):
-        args = self.arg or []
+        args = self._arg or []
 
         for prefix_idx in xrange(0, len(args) + 1):
             if prefix_idx == len(args):
@@ -262,39 +268,41 @@ class BaseCommand(Pipeline):
         args = [repr(arg) for arg in args]
 
         running_process = ''
-        if self.running_process:
-            running_process = ' as ' + repr(self.running_process)
+        if self._running_process:
+            running_process = ' as ' + repr(self._running_process)
 
         return u"%s(%s)%s" % (prefix, ', '.join(args), running_process)
 
-    def arg_list(self, redirects = None, sess = None, indentation = ""):
+    def _arg_list(self, redirects = None, sess = None, indentation = ""):
         def handle_arg_pipes(item):
             if redirects is not None:
-                return self.handle_arg_pipes(item, redirects, sess, indentation)
+                return self._handle_arg_pipes(item, redirects, sess, indentation)
             else:
                 return "/dev/fd/X"
         args = []
-        if self.arg:
-            for arg in self.arg:
+        if self._arg:
+            for arg in self._arg:
                 if isinstance(arg, dict):
                     for name, value in arg.iteritems():
-                        args.append("--%s=%s" % (name, handle_arg_pipes(value)))
+                        for match in self._env._expand_argument(value):
+                            args.append("--%s=%s" % (name, handle_arg_pipes(match)))
                 else:
-                    args.append(handle_arg_pipes(arg))
+                    for match in self._env._expand_argument(arg):
+                        args.append(handle_arg_pipes(match))
         return args
 
-    def arg_list_sh(self, *arg, **kw):
+    def _arg_list_sh(self, *arg, **kw):
         def quote_arg(arg):
             arg = str(arg)
             if " " in arg:
                 arg = repr(arg)
             return arg
-        return ' '.join(quote_arg(arg) for arg in self.arg_list(*arg, **kw))
+        return ' '.join(quote_arg(arg) for arg in self._arg_list(*arg, **kw))
 
     def _run(self, redirects, sess, indentation = ""):
         raise NotImplemented
 
-class Builtin(BaseCommand):
+class BuiltinRegistry(object):
     builtins = {}
 
     @classmethod
@@ -307,6 +315,7 @@ class Builtin(BaseCommand):
             return None
         return cls.builtins[name]
 
+class Builtin(BaseCommand):
     def _run(self, redirects, sess, indentation = ""):
         raise NotImplemented
 
@@ -320,18 +329,18 @@ class Command(BaseCommand):
 
     def _child(self, redirects, args):
         redirects.perform()
-        os.chdir(self.env.cwd)
-        os.execvpe(args[0], args, self.env.env)
+        os.chdir(self._env._cwd)
+        os.execvpe(args[0], args, self._env._exports)
         os._exit(-1)
 
-    def handle_arg_pipes(self, thing, redirects, sess, indentation):
+    def _handle_arg_pipes(self, thing, redirects, sess, indentation):
         if isinstance(thing, Pipeline):
             direction = "stdout"
         elif isinstance(thing, types.FunctionType):
-            thing = Function(self.env, thing)
+            thing = Function(self._env, thing)
             direction = "stdin"
         elif hasattr(thing, "__iter__") or hasattr(thing, "next"):
-            thing = Function(self.env, thing)
+            thing = Function(self._env, thing)
             direction = "stdout"
         else:
             # Not a named pipe item, just a string
@@ -352,9 +361,9 @@ class Command(BaseCommand):
         Pipeline._run(self, redirects, sess, indentation)
 
         redirects = redirects.make_pipes()
-        log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
+        log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
-        args = self.arg_list(redirects, sess, indentation)
+        args = self._arg_list(redirects, sess, indentation)
 
         log.log(indentation + "  Command line %s witth %s" % (' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
 
@@ -364,22 +373,22 @@ class Command(BaseCommand):
             # If we ever get to here, all is lost...
             sys._exit(-1)
 
-        self.running_process = RunningProcess(pid)
+        self._running_process = RunningProcess(pid)
 
         redirects.close_source_fds()
 
-        self.pid = pid
-        self.redirects = self.running_process.redirects = redirects
+        self._pid = pid
+        self._redirects = self._running_process.redirects = redirects
 
-        return [self.running_process]
+        return [self._running_process]
 
-    def complete(self):
-        cmd = self.arg_list_sh() + " "
-        return (item.strip() for item in self.env.get_completions(cmd))
+    def _complete(self):
+        cmd = self._arg_list_sh() + " "
+        return (item.strip() for item in self._env.get_completions(cmd))
 
     def __dir__(self):
         try:
-            return list(self.complete())
+            return list(self._complete())
         except Exception, e:
             traceback.print_exc()
             return ["<%s>" % e]
@@ -398,18 +407,18 @@ class Function(Pipeline):
     def __init__(self, env, function, *arg, **kw):
         Pipeline.__init__(self, env)
         self.function = function
-        self.arg = arg
-        self.kw = kw
+        self._arg = arg
+        self._kw = kw
     def __deepcopy__(self, memo = {}):
-        return type(self)(self.env, self.__dict__["function"], *copy.deepcopy(self.arg), **copy.deepcopy(self.kw))
+        return type(self)(self._env, self.__dict__["function"], *copy.deepcopy(self._arg), **copy.deepcopy(self._kw))
     def _repr(self):
         thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, types.FunctionType):
             args = []
-            if self.arg:
-                args += [repr(arg) for arg in self.arg]
-            if self.kw:
-                args += ["%s=%s" % (key, repr(value)) for (key, value) in self.kw.iteritems()]
+            if self._arg:
+                args += [repr(arg) for arg in self._arg]
+            if self._kw:
+                args += ["%s=%s" % (key, repr(value)) for (key, value) in self._kw.iteritems()]
             mod = thing.__module__ or ''
             if mod:
                 mod = mod + '.'
@@ -421,7 +430,7 @@ class Function(Pipeline):
         Pipeline._run(self, redirects, sess, indentation)
 
         redirects = redirects.make_pipes()
-        log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
+        log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
         def convert(x):
             if isinstance(x, str):
@@ -435,17 +444,17 @@ class Function(Pipeline):
         if isinstance(thing, types.FunctionType):
             thing = thing(
                 iterio.LineInputHandler(redirects.stdin.open()),
-                *self.arg, **self.kw)
+                *self._arg, **self._kw)
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
 
-        self.running_process = iterio.LineOutputHandler(
+        self._running_process = iterio.LineOutputHandler(
             redirects.stdout.open(),
             (convert(x) for x in thing))
         
-        self.redirects = self.running_process.redirects = redirects
+        self._redirects = self._running_process.redirects = redirects
 
-        return [self.running_process]
+        return [self._running_process]
         
 
 class Pipe(Pipeline):
@@ -456,19 +465,19 @@ class Pipe(Pipeline):
         self.src = src
         self.dst = dst
     def __deepcopy__(self, memo = {}):
-        return type(self)(self.env, copy.deepcopy(self.src), copy.deepcopy(self.dst))
+        return type(self)(self._env, copy.deepcopy(self.src), copy.deepcopy(self.dst))
     def _repr(self):
         return u"%s | %s" % (repr(self.src), repr(self.dst))
     def _run(self, redirects, sess, indentation = ""):
         Pipeline._run(self, redirects, sess, indentation)
 
-        log.log(indentation + "Running %s with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
+        log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
         src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), sess, indentation + "  ")
         dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), sess, indentation + "  ")
 
-        self.redirects = self.src.redirects.merge(self.dst.redirects)
-        self.redirects.register(redir.Redirect(self.src.redirects.stdin))
-        self.redirects.register(redir.Redirect(self.dst.redirects.stdout))
+        self._redirects = self.src.redirects.merge(self.dst.redirects)
+        self._redirects.register(redir.Redirect(self.src.redirects.stdin))
+        self._redirects.register(redir.Redirect(self.dst.redirects.stdout))
 
         return src + dst
     def __dir__(self):
@@ -487,19 +496,18 @@ class Pipe(Pipeline):
 
 class CmdRedirect(Pipeline):
     def __init__(self, env, pipeline, redirects):
-        self.env = env
+        self._env = env
         self.pipeline = pipeline
         self.cmd_redirects = redirects
     def __deepcopy__(self, memo = {}):
-        return type(self)(self.env, copy.deepcopy(self.pipeline), copy.deepcopy(self.cmd_redirects))
+        return type(self)(self._env, copy.deepcopy(self.pipeline), copy.deepcopy(self.cmd_redirects))
     def _repr(self):
-        return u"%s with %s" % (Pipeline.repr(self.pipeline), repr(self.cmd_redirects))
+        return u"%s with %s" % (repr(self.pipeline), repr(self.cmd_redirects))
     def _run(self, redirects, sess, indentation = ""):
         Pipeline._run(self, redirects, sess, indentation)
 
-        log.log(indentation + "Running [%s] with %s" % (Pipeline.repr(self), repr(redirects)), "cmd")
+        log.log(indentation + "Running [%s] with %s" % (repr(self), repr(redirects)), "cmd")
 
         res = self.pipeline._run(redirects.merge(self.cmd_redirects), indentation + "  ")
-        self.redirects = self.pipeline.redirects
+        self._redirects = self.pipeline.redirects
         return res
-        

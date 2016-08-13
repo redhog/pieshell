@@ -15,7 +15,7 @@ It can be used in two major ways:
 """,
     keywords = "Python shell pipelines suprocess",
     install_requires = ["signalfd"],
-    version = "0.0.5",
+    version = "0.0.6",
     author = "Egil Moeller",
     author_email = "egil.moller@piratpartiet.se",
     license = "GPL",

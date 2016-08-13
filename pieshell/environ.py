@@ -1,9 +1,20 @@
 import os
 import sys
+import traceback
+import glob
 
 from . import pipeline
-import traceback
 import pieshell
+
+
+class R(object):
+    """Wraps a string and protects it from path expansions"""
+    def __init__(self, str):
+        self.str = str
+    def __getattr__(self, name):
+        return getattr(self.str, name)
+    def __repr__(self):
+        return "R(%s)" % (repr(self.str),)
 
 class Environment(object):
     """An environment within which a command or pipeline can run. The
@@ -20,34 +31,60 @@ class Environment(object):
         Command(env, "COMMAND_NAME")
     """
 
-    def __init__(self, cwd = None, env = None, interactive = False):
+    def __init__(self, cwd = None, exports = None, interactive = False):
         """Creates a new environment from scratch. Takes the same
         arguments as __call__."""
-        self.cwd = os.getcwd()
+        self._cwd = os.getcwd()
         if cwd is not None:
             self._cd(cwd)
-        self.env = env
-        self.interactive = interactive
+        self._exports = exports
+        self._interactive = interactive
+        self._scope = None
+    @property
+    def _exports(self):
+        return self._exports_value or os.environ
+    @_exports.setter
+    def _exports(self, exports):
+        self._exports_value = exports
+    @_exports.deleter
+    def _exports(self):
+        self._exports_value = None
     def _expand_path(self, pth):
         if not pth.startswith("/") and not pth.startswith("~"):
-            pth = os.path.join(self.cwd, pth)
+            pth = os.path.join(self._cwd, pth)
         pth = os.path.expanduser(pth)
         pth = os.path.abspath(pth)
         return pth
+    def _expand_argument(self, arg):
+        """Performs argument glob expansion on an argument string.
+        Returns a list of strings.
+        """
+        if isinstance(arg, R): return [arg.str]
+        scope = self._scope or self._exports
+        arg = arg % scope
+        arg = os.path.expanduser(arg)
+        relative = not arg.startswith("/")
+        res = glob.glob(self._expand_path(arg))
+        if not res: res = [arg]
+        if self._cwd != "/":
+            for idx in xrange(0, len(res)):
+                if res[idx].startswith(self._cwd + "/"):
+                    res[idx] = res[idx][len(self._cwd + "/"):]
+        return res
     def _cd(self, cwd):
         cwd = self._expand_path(cwd)
         if not os.path.exists(cwd):
             raise IOError("Path does not exist: %s" % cwd)
-        self.cwd = cwd
-        if self.interactive:
+        self._cwd = cwd
+        if self._interactive:
             os.chdir(cwd)
         return self
-    def __call__(self, cwd = None, env = None, interactive = None):
+    def __call__(self, cwd = None, exports = None, interactive = None):
         """Creates a new environment based on the current ones. All
         configuration is copied, unless specifically overridden.
 
         cwd: Path to current working directory
-        env: Dictionary of environment variables
+        exports: Dictionary of environment variables
         interactive: Boolean. If true:
             * Changing the current working directory of this
               environment changes the real working directory of the
@@ -56,11 +93,11 @@ class Environment(object):
               stdin/stdout/stderr connected to the current terminal,
               and wait until the pipeline terminates.
         """
-        if env is None:
-            env = self.env
+        if exports is None:
+            exports = self._exports
         if interactive is None:
-            interactive = self.interactive
-        res = type(self)(cwd = self.cwd, env = env, interactive = interactive)
+            interactive = self._interactive
+        res = type(self)(cwd = self._cwd, exports = exports, interactive = interactive)
         if cwd is not None:
             res.cd(cwd)
         return res
@@ -76,17 +113,17 @@ class Environment(object):
             return pipeline.BaseCommand(self, [name])
     def __repr__(self):
         """Prints the current prompt"""
-        if self.interactive:
-            return "%s:%s >>> " % (str(id(self))[:3], self.cwd)
+        if self._interactive:
+            return "%s:%s >>> " % (str(id(self))[:3], self._cwd)
         else:
-            return "[%s:%s]" % (str(id(self))[:3], self.cwd)
-    def keys(self):
-        e = self.env or os.environ
+            return "[%s:%s]" % (str(id(self))[:3], self._cwd)
+    def __dir__(self):
+        e = self._exports
         res = []
         paths = e["PATH"].split(":")
         for pth in paths:
             if not pth.startswith("/"):
-                pth = os.path.join(self.cwd, pth)
+                pth = os.path.join(self._cwd, pth)
             res.extend(os.listdir(os.path.abspath(pth)))
         res.sort()
         return res
@@ -97,16 +134,34 @@ class EnvScope(dict):
     """EnvScope can be used instead of a globals() dictionary to allow
     global lookup of command names, without the env.COMMAND
     prefixing."""
+    def __setitem__(self, name, value):
+        # Hack for ptpython
+        if name == "_":
+            name = "last_statement"
+        if name == "env":
+            value._scope = self
+        env = dict.__getitem__(self, 'env')
+        if name in env._exports:
+            env._exports[name] = value
+        else:
+            dict.__setitem__(self, name, value)
     def __getitem__(self, name):
         try:
             return dict.__getitem__(self, name)
         except KeyError:
-            if name != "_" and name in __builtins__:
+            pass
+        env = dict.__getitem__(self, 'env')
+        if name != "_":
+            if name == "exports":
+                return env._exports
+            if name in env._exports:
+                return env._exports[name]
+            if name in __builtins__:
                 raise
-            return getattr(dict.__getitem__(self, 'env'), name)
+        return getattr(env, name)
 
     def keys(self):
-        return dict.keys(self) + dict.__getitem__(self, 'env').keys()
+        return dict.keys(self) + dir(dict.__getitem__(self, 'env'))
 
     def __str__(self):
         return unicode(self).encode('utf-8')
