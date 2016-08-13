@@ -7,7 +7,13 @@ import signal
 import errno
 import log
 
-debug = False
+class RecursiveEvent(Exception): pass
+
+def events_to_str(events):
+    return ",".join([name for name in dir(select)
+                     if (    name.startswith("POLL")
+                         and events & getattr(select, name) != 0)])
+
 
 class IOManager(object):
     def __init__(self):
@@ -32,7 +38,7 @@ class IOManager(object):
     def register(self, io_handler):
         self.enable(io_handler)
         self.io_handlers[io_handler.fd] = io_handler
-        log.log("REGISTER %s, %s, %s" % (io_handler.fd, io_handler.events, io_handler), "ioreg")
+        log.log("REGISTER %s, %s, %s" % (io_handler.fd, events_to_str(io_handler.events), io_handler), "ioreg")
 
     def enable(self, io_handler):
         self.poll.register(io_handler.fd, io_handler.events)
@@ -53,18 +59,25 @@ class IOManager(object):
     def handle_io(self, timeout = None):
         while self.io_handlers:
             events = self.poll.poll(timeout)
-            log.log("EVENTS %s" % (events,), "ioevent")
+            log.log("EVENTS %s" % (", ".join("%s:%s" % (fd, events_to_str(event))
+                                             for (fd, event) in events),), "ioevent")
             assert timeout is not None or events
             done = False
+            recursive = False
             for fd, event in events:
                 # Check if the fd is still registered. If we have
                 # multiple events for the same fd, this might not be
                 # the case for the second event...
                 if fd in self.io_handlers:
-                    event_done = self.io_handlers[fd].handle_event(event)
-                done = done or event_done
+                    try:
+                        event_done = self.io_handlers[fd].handle_event(event)
+                        done = done or event_done
+                    except RecursiveEvent:
+                        recursive = True
             if done:
                 return
+            if recursive:
+                raise RecursiveEvent
             if timeout is not None:
                 return
 
@@ -102,7 +115,14 @@ class IOHandler(object):
     def disable(self):
         self.enabled = False
         get_io_manager().enable(self)
-
+    def _repr_args(self):
+        args = [str(self.fd)]
+        if self.enabled:
+            args.append("enabled")
+        return args
+    def __repr__(self):
+        t = type(self)
+        return "%s.%s(%s)" % (t.__module__, t.__name__, ",".join(self._repr_args()))
 
 class OutputHandler(IOHandler):
     events = select.POLLOUT
@@ -110,6 +130,7 @@ class OutputHandler(IOHandler):
     def __init__(self, fd, iter):
         self.iter = iter
         self.is_running = True
+        self.recursion = False
         IOHandler.__init__(self, fd)
 
     def destroy(self):
@@ -117,38 +138,51 @@ class OutputHandler(IOHandler):
         IOHandler.destroy(self)
 
     def handle_event(self, event):
-        self.disable()
+        if self.recursion:
+            raise RecursiveEvent
+        self.recursion = True
         try:
-            return self.handle_event_nonrecursive(event)
+            return self.handle_event_non_recursive(event)
         finally:
-            self.enable()
+            self.recursion = False
 
-    def handle_event_nonrecursive(self, event):
+    def handle_event_non_recursive(self, event):
         try:
             val = self.iter.next()
             if val is not None:
                 os.write(self.fd, val)
         except StopIteration:
             self.destroy()
+            return True
+
+    def _repr_args(self):
+        args = IOHandler._repr_args(self)
+        if not self.is_running:
+            args.append("stopped")
+        if self.recursion:
+            args.append("recursion")
+        return args
+
 
 class LineOutputHandler(OutputHandler):
-    def handle_event_nonrecursive(self, event):
+    def handle_event_non_recursive(self, event):
         try:
             val = self.iter.next()
             if val is not None:
                 os.write(self.fd, val + "\n")
-            log.log("WRITE %s, %s" % (self.fd, val), "io")
+            log.log("WRITE %s, %s" % (self.fd, repr(val)), "io")
         except StopIteration:
             log.log("STOP ITERATION %s" % self.fd, "ioevent")
             self.destroy()
+            return True
 
 class InputHandler(IOHandler):
     events = select.POLLIN | select.POLLHUP | select.POLLERR
     
     def __init__(self, fd):
-        IOHandler.__init__(self, fd)
         self.buffer = None
         self.eof = False
+        IOHandler.__init__(self, fd)
 
     def handle_event(self, event):
         if event == select.POLLHUP or event == select.POLLERR:
@@ -163,13 +197,24 @@ class InputHandler(IOHandler):
 
     def next(self):
         while self.buffer is None:
-            get_io_manager().handle_io()
+            try:
+                get_io_manager().handle_io()
+            except RecursiveEvent:
+                return None
             if self.eof:
                 raise StopIteration
         try:
             return self.buffer
         finally:
             self.buffer = None
+
+    def _repr_args(self):
+        args = IOHandler._repr_args(self)
+        if self.eof:
+            args.append("EOF")
+        if self.buffer:
+            args.append("data")
+        return args
 
 class LineInputHandler(InputHandler):
     def __init__(self, fd):
@@ -187,7 +232,10 @@ class LineInputHandler(InputHandler):
 
     def next(self):
         while '\n' not in self.buffer:
-            get_io_manager().handle_io()
+            try:
+                get_io_manager().handle_io()
+            except RecursiveEvent:
+                return None
             if self.eof:
                 raise StopIteration
         ret, self.buffer = self.buffer.split("\n", 1)
@@ -200,9 +248,9 @@ class SignalManager(IOHandler):
     
     def __init__(self, mask = [signal.SIGCHLD]):
         self.mask = mask
+        self.signal_handlers = {}
         IOHandler.__init__(self, signalfd.signalfd(-1, mask, signalfd.SFD_CLOEXEC | signalfd.SFD_NONBLOCK))
         signalfd.sigprocmask(signalfd.SIG_BLOCK, mask)
-        self.signal_handlers = {}
 
     def filter_to_key(self, flt):
         key = flt.items()
@@ -247,16 +295,22 @@ class SignalManager(IOHandler):
                 siginfos = get_sigchlds()
 
             for siginfo in siginfos:
-                if debug:
-                    print "Signal"
+                if log.debug["signal"]:
+                    log.log("Signal", "signal")
                     for key, val in siginfo_to_names(siginfo).iteritems():
-                        print "    ", key, val
+                        log.log("    %s: %s" % (key, val), "signal")
 
                 for key, signal_handler in self.signal_handlers.items():
                     if self.match_signal(siginfo, signal_handler.filter):
                         sighandlerres = signal_handler.handle_event(siginfo)
                         res = res or sighandlerres
         return res
+
+    def _repr_args(self):
+        args = IOHandler._repr_args(self)
+        args.append(repr(self.mask))
+        args.append(repr(self.signal_handlers))
+        return args
 
 CLD_EXITED = 1    # Child has exited.
 CLD_KILLED = 2    # Child was killed.

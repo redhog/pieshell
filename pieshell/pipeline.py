@@ -138,11 +138,15 @@ class Pipeline(DescribableObject):
         return pipeline
 
     def run_interactive(self):
+        pipeline = None
         try:
             pipeline = self.run()
             pipeline.wait()
-        except Exception, e:
-            print e
+        except (Exception, KeyboardInterrupt), e:
+            procs = ""
+            if pipeline is not None:
+                procs = " in %s" % repr(pipeline.processes)
+            log.log("Error: %s%s" % (e, procs), "error")
             sys.last_traceback = sys.exc_info()[2]
             import pdb
             pdb.pm()
@@ -284,11 +288,11 @@ class BaseCommand(Pipeline):
             for arg in self._arg:
                 if isinstance(arg, dict):
                     for name, value in arg.iteritems():
-                        for match in self._env._expand_argument(value):
-                            args.append("--%s=%s" % (name, handle_arg_pipes(match)))
+                        for match in self._env._expand_argument(handle_arg_pipes(value)):
+                            args.append("--%s=%s" % (name, match))
                 else:
-                    for match in self._env._expand_argument(arg):
-                        args.append(handle_arg_pipes(match))
+                    for match in self._env._expand_argument(handle_arg_pipes(arg)):
+                        args.append(match)
         return args
 
     def _arg_list_sh(self, *arg, **kw):
@@ -433,7 +437,9 @@ class Function(Pipeline):
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
         def convert(x):
-            if isinstance(x, str):
+            if x is None:
+                return x
+            elif isinstance(x, str):
                 return x
             elif isinstance(x, unicode):
                 return x.encode("utf-8")
@@ -475,9 +481,9 @@ class Pipe(Pipeline):
         src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), sess, indentation + "  ")
         dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), sess, indentation + "  ")
 
-        self._redirects = self.src.redirects.merge(self.dst.redirects)
-        self._redirects.register(redir.Redirect(self.src.redirects.stdin))
-        self._redirects.register(redir.Redirect(self.dst.redirects.stdout))
+        self._redirects = self.src._redirects.merge(self.dst._redirects)
+        self._redirects.register(redir.Redirect(self.src._redirects.stdin))
+        self._redirects.register(redir.Redirect(self.dst._redirects.stdout))
 
         return src + dst
     def __dir__(self):

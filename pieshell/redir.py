@@ -18,6 +18,11 @@ except:
 
 class PIPE(object): pass
 
+def flags_to_string(flags):
+    return ",".join([name[2:]
+                     for name in dir(os)
+                     if name.startswith("O_") and flags & getattr(os, name)])
+
 class Redirect(object):
     fd_names = {"stdin": 0, "stdout": 1, "stderr": 2}
     fd_flags = {
@@ -77,8 +82,8 @@ class Redirect(object):
         return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
     def __repr__(self):
         flagmode = []
-        if self.flag not in (os.O_RDONLY, os.O_WRONLY):
-            flagmode.append("f=%s" % self.flag)
+        if self.flag != self.fd_flags.get(self.fd, None):
+            flagmode.append("f=%s" % flags_to_string(self.flag))
         if self.mode != 0777:
             flagmode.append("m=%s" % self.mode)
         if flagmode:

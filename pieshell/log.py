@@ -3,10 +3,11 @@ import sys
 
 debug = {
     "all": False,
+    "error": True,
     "fd": False,
     "cmd": True,
-    "ioreg": True,
-    "ioevent": True,
+    "ioreg": False,
+    "ioevent": False,
     "io": False,
     "signalreg": False,
     "signal": False
