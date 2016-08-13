@@ -28,4 +28,4 @@ class CdBuiltin(pipeline.Builtin):
         except:
             return []
 
-pipeline.Builtin.register(CdBuiltin)
+pipeline.BuiltinRegistry.register(CdBuiltin)
