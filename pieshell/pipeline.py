@@ -369,13 +369,13 @@ class Command(BaseCommand):
 
         args = self._arg_list(redirects, sess, indentation)
 
-        log.log(indentation + "  Command line %s witth %s" % (' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
-
         pid = os.fork()
         if pid == 0:
             self._child(redirects, args)
             # If we ever get to here, all is lost...
             sys._exit(-1)
+
+        log.log(indentation + "  %s: Command line %s with %s" % (pid, ' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
 
         self._running_process = RunningProcess(pid)
 
