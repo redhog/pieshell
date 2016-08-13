@@ -75,25 +75,25 @@ class Redirect(object):
     def make_pipe(self):
         if self.source is not PIPE: return self
         rfd, wfd = pipe.pipe_cloexec()
-        if self.flag & os.O_RDONLY:
-            pipefd, sourcefd = wfd, rfd
-        else:
+        if self.flag & os.O_WRONLY:
             sourcefd, pipefd = wfd, rfd
+        else:
+            pipefd, sourcefd = wfd, rfd
         return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
     def __repr__(self):
         flagmode = []
         if self.flag != self.fd_flags.get(self.fd, None):
-            flagmode.append("f=%s" % flags_to_string(self.flag))
+            flagmode.append(flags_to_string(self.flag))
         if self.mode != 0777:
             flagmode.append("m=%s" % self.mode)
         if flagmode:
             flagmode = "[" + ",".join(flagmode) + "]"
         else:
             flagmode = ""
-        if self.flag & os.O_RDONLY:
-            arrow = "<-%s-" % flagmode
-        else:
+        if self.flag & os.O_WRONLY:
             arrow = "-%s->" % flagmode
+        else:
+            arrow = "<-%s-" % flagmode
         items = [str(self.fd), arrow, str(self.source)]
         if self.pipe is not None:
             items.append("pipe=%s" % self.pipe)
