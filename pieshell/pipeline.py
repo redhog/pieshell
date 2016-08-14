@@ -359,10 +359,14 @@ class Command(BaseCommand):
             getattr(arg_pipe[-1].redirects, direction).pipe,
             {"stdin": os.O_WRONLY, "stdout": os.O_RDONLY}[direction])
 
+        self._running_processes.extend(arg_pipe)
+
         return "/dev/fd/%s" % fd
 
     def _run(self, redirects, sess, indentation = ""):
         Pipeline._run(self, redirects, sess, indentation)
+
+        self._running_processes = []
 
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
@@ -377,14 +381,15 @@ class Command(BaseCommand):
 
         log.log(indentation + "  %s: Command line %s with %s" % (pid, ' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
 
-        self._running_process = RunningProcess(pid)
+        proc = RunningProcess(pid)
+        self._running_processes.append(proc)
 
         redirects.close_source_fds()
 
         self._pid = pid
-        self._redirects = self._running_process.redirects = redirects
+        self._redirects = proc.redirects = redirects
 
-        return [self._running_process]
+        return self._running_processes
 
     def _complete(self):
         cmd = self._arg_list_sh() + " "
