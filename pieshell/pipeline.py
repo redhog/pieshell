@@ -340,7 +340,7 @@ class Command(BaseCommand):
     def _handle_arg_pipes(self, thing, redirects, sess, indentation):
         if isinstance(thing, Pipeline):
             direction = "stdout"
-        elif isinstance(thing, types.FunctionType):
+        elif isinstance(thing, (types.FunctionType, types.MethodType)):
             thing = Function(self._env, thing)
             direction = "stdin"
         elif hasattr(thing, "__iter__") or hasattr(thing, "next"):
@@ -452,7 +452,7 @@ class Function(Pipeline):
                 return unicode(x).encode("utf-8")
 
         thing = self.__dict__["function"] # Don't wrap functions as instance methods
-        if isinstance(thing, types.FunctionType):
+        if isinstance(thing, (types.FunctionType, types.MethodType)):
             thing = thing(
                 iterio.LineInputHandler(
                     redirects.stdin.open(),
