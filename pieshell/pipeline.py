@@ -454,14 +454,17 @@ class Function(Pipeline):
         thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, types.FunctionType):
             thing = thing(
-                iterio.LineInputHandler(redirects.stdin.open()),
+                iterio.LineInputHandler(
+                    redirects.stdin.open(),
+                    borrowed=redirects.stdin.borrowed),
                 *self._arg, **self._kw)
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
 
         self._running_process = iterio.LineOutputHandler(
             redirects.stdout.open(),
-            (convert(x) for x in thing))
+            (convert(x) for x in thing),
+            borrowed=redirects.stdout.borrowed)
         
         self._redirects = self._running_process.redirects = redirects
 

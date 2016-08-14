@@ -99,16 +99,20 @@ def get_signal_manager():
 
 class IOHandler(object):
     events = 0
-    def __init__(self, fd):
+    def __init__(self, fd, borrowed = False):
         self.fd = fd
+        self.borrowed = borrowed
         self.enabled = True
         get_io_manager().register(self)
     def handle_event(self, event):
         pass
     def destroy(self):
         get_io_manager().deregister(self)
-        log.log("CLOSE DESTROY %s, %s" % (self.fd, self), "ioreg")
-        os.close(self.fd)
+        if self.borrowed:
+            log.log("HAND BACK %s, %s" % (self.fd, self), "ioreg")
+        else:
+            log.log("CLOSE DESTROY %s, %s" % (self.fd, self), "ioreg")
+            os.close(self.fd)
     def enable(self):
         self.enabled = True
         get_io_manager().enable(self)
@@ -127,11 +131,11 @@ class IOHandler(object):
 class OutputHandler(IOHandler):
     events = select.POLLOUT
 
-    def __init__(self, fd, iter):
+    def __init__(self, fd, iter, borrowed = False):
         self.iter = iter
         self.is_running = True
         self.recursion = False
-        IOHandler.__init__(self, fd)
+        IOHandler.__init__(self, fd, borrowed)
 
     def destroy(self):
         self.is_running = False
@@ -179,10 +183,10 @@ class LineOutputHandler(OutputHandler):
 class InputHandler(IOHandler):
     events = select.POLLIN | select.POLLHUP | select.POLLERR
     
-    def __init__(self, fd):
+    def __init__(self, fd, borrowed = False):
         self.buffer = None
         self.eof = False
-        IOHandler.__init__(self, fd)
+        IOHandler.__init__(self, fd, borrowed)
 
     def handle_event(self, event):
         if self.buffer is None:
@@ -217,8 +221,8 @@ class InputHandler(IOHandler):
         return args
 
 class LineInputHandler(InputHandler):
-    def __init__(self, fd):
-        InputHandler.__init__(self, fd)
+    def __init__(self, fd, borrowed = False):
+        InputHandler.__init__(self, fd, borrowed)
         self.buffer = ""
 
     def handle_event(self, event):

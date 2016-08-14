@@ -30,7 +30,7 @@ class Redirect(object):
         1: os.O_WRONLY | os.O_CREAT,
         2: os.O_WRONLY | os.O_CREAT
         }
-    def __init__(self, fd, source = None, flag = None, mode = 0777, pipe=None):
+    def __init__(self, fd, source = None, flag = None, mode = 0777, pipe=None, borrowed=False):
         if isinstance(fd, Redirect):
             fd, source, flag, mode, pipe = fd.fd, fd.source, fd.flag, fd.mode, fd.pipe
         if not isinstance(fd, int):
@@ -42,8 +42,9 @@ class Redirect(object):
         self.flag = flag
         self.mode = mode
         self.pipe = pipe
+        self.borrowed = borrowed
     def __deepcopy__(self, memo = {}):
-        return type(self)(self.fd, copy.deepcopy(self.source), self.flag, self.mode, self.pipe)
+        return type(self)(self.fd, copy.deepcopy(self.source), self.flag, self.mode, self.pipe, self.borrowed)
 
     def open(self):
         source = self.source
@@ -107,9 +108,9 @@ class Redirects(object):
                 self.register(Redirect(redirect))
         else:
             if kw.get("defaults", True):
-                self.redirect(0, 0)
-                self.redirect(1, 1)
-                self.redirect(2, 2)
+                self.redirect(0, 0, borrowed=True)
+                self.redirect(1, 1, borrowed=True)
+                self.redirect(2, 2, borrowed=True)
             for redirect in redirects:
                 self.register(redirect)
     def register(self, redirect):
