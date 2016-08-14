@@ -185,11 +185,11 @@ class InputHandler(IOHandler):
         IOHandler.__init__(self, fd)
 
     def handle_event(self, event):
-        if event == select.POLLHUP or event == select.POLLERR:
-            self.eof = True
-            self.destroy()
-        elif self.buffer is None:
+        if self.buffer is None:
             self.buffer = os.read(self.fd, 1024)
+            if not self.buffer:
+                self.eof = True
+                self.destroy()
         return True
 
     def __iter__(self):
@@ -197,12 +197,12 @@ class InputHandler(IOHandler):
 
     def next(self):
         while self.buffer is None:
+            if self.eof:
+                raise StopIteration
             try:
                 get_io_manager().handle_io()
             except RecursiveEvent:
                 return None
-            if self.eof:
-                raise StopIteration
         try:
             return self.buffer
         finally:
@@ -222,22 +222,25 @@ class LineInputHandler(InputHandler):
         self.buffer = ""
 
     def handle_event(self, event):
-        if event == select.POLLHUP or event == select.POLLERR:
-            self.eof = True
-            self.destroy()
-        elif '\n' not in self.buffer:
-            self.buffer = self.buffer + os.read(self.fd, 1024)
+        if '\n' not in self.buffer:
+            read_data = os.read(self.fd, 1024)
+            self.buffer += read_data
+            if not read_data:
+                self.eof = True
+                self.destroy()
         return True
 
-
     def next(self):
-        while '\n' not in self.buffer:
+        while not self.eof and '\n' not in self.buffer:
             try:
                 get_io_manager().handle_io()
             except RecursiveEvent:
                 return None
-            if self.eof:
-                raise StopIteration
+        if not self.buffer:
+            assert self.eof
+            raise StopIteration
+        if '\n' not in self.buffer:
+            self.buffer += '\n' # No newline at end of file...
         ret, self.buffer = self.buffer.split("\n", 1)
         return ret
 
