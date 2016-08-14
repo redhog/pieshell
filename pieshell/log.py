@@ -5,7 +5,7 @@ debug = {
     "all": False,
     "error": True,
     "fd": False,
-    "cmd": True,
+    "cmd": False,
     "ioreg": False,
     "ioevent": False,
     "io": False,
