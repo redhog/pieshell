@@ -150,7 +150,7 @@ class Pipeline(DescribableObject):
             sys.last_traceback = sys.exc_info()[2]
             import pdb
             pdb.pm()
-        return ""
+        return pipeline
 
     def __iter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
