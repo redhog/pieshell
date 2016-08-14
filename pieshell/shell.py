@@ -3,6 +3,7 @@ import os
 import code
 
 from . import environ
+from . import log
 
 # Example usage
 # for line in env.find(".", name='foo*', type='f') | env.grep("bar.*"):
@@ -76,11 +77,17 @@ pieshell --test
 pieshell --help
 pieshell --ptpython
     Fancy editing environment based on ptpython (pip install ptpython)
+pieshell --log=NAME,NAME,NAME
+
 
 """
     elif kws.get("test", False):
         test()
     else:
+        if 'log' in kws:
+            for name in kws['log'].split(','):
+                log.debug[name] = True
+
         with environ.envScope:
             environ.envScope["args"] = args
             environ.envScope["kws"] = kws
