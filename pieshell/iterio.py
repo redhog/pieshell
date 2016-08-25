@@ -18,26 +18,13 @@ def events_to_str(events):
 class IOManager(object):
     def __init__(self):
         self.io_handlers = {}
-        self.delay = 0
-
         self.poll = select.poll()
-
-        self.cleanup = []
-
-    def register_cleanup(self, cleanup):
-        self.cleanup.append(cleanup)
-
-    def delay_cleanup(self):
-        self.delay += 1
-
-    def perform_cleanup(self):
-        if self.delay > 0:
-            self.delay -= 1
-        self._do_cleanup()
 
     def register(self, io_handler):
         self.enable(io_handler)
-        self.io_handlers[io_handler.fd] = io_handler
+        if io_handler.fd not in self.io_handlers:
+            self.io_handlers[io_handler.fd] = []
+        self.io_handlers[io_handler.fd].append(io_handler)
         log.log("REGISTER %s, %s, %s" % (io_handler.fd, events_to_str(io_handler.events), io_handler), "ioreg")
 
     def enable(self, io_handler):
@@ -46,14 +33,12 @@ class IOManager(object):
     def disable(self, io_handler):
         self.poll.unregister(io_handler.fd)
 
-    def _do_cleanup(self):
-        while self.delay == 0 and not len(self.io_handlers) and self.cleanup:
-            self.cleanup.pop()()
-
     def deregister(self, io_handler):
         self.disable(io_handler)
-        del self.io_handlers[io_handler.fd]
-        self._do_cleanup()
+        self.io_handlers[io_handler.fd] = [item for item in self.io_handlers[io_handler.fd]
+                                           if item is not io_handler]
+        if not self.io_handlers[io_handler.fd]:
+            del self.io_handlers[io_handler.fd]
         log.log("DEREGISTER %s, %s" % (io_handler.fd, io_handler), "ioreg")
     
     def handle_io(self, timeout = None):
@@ -69,11 +54,12 @@ class IOManager(object):
                 # multiple events for the same fd, this might not be
                 # the case for the second event...
                 if fd in self.io_handlers:
-                    try:
-                        event_done = self.io_handlers[fd].handle_event(event)
-                        done = done or event_done
-                    except RecursiveEvent:
-                        recursive = True
+                    for io_handler in self.io_handlers[fd]:
+                        try:
+                            event_done = io_handler.handle_event(event)
+                            done = done or event_done
+                        except RecursiveEvent:
+                            recursive = True
             if done:
                 return
             if recursive:

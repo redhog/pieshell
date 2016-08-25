@@ -43,11 +43,22 @@ class BashSource(pipeline.Builtin):
     def _run(self, redirects, sess, indentation = ""):
         self._cmd = self._env.bash(
             "-l", "-i", "-c",
-            "source '%s'; declare -x > $0" % self._arg[1],
-            self.parse_decls)
+            "source '%s'; declare -x > $0; declare -f > $1" % self._arg[1],
+            self.parse_exports,
+            self.store_functions)
         return self._cmd._run(redirects, sess, indentation)
 
-    def parse_decls(self, stdin):
+    def store_functions(self, stdin):
+        # Save functions
+        func_decls = []
+        for decl in stdin:
+            if decl is None:
+                yield; continue
+            func_decls.append(decl)
+        self._env._exports["bash_functions"] = "\n".join(func_decls)
+        yield
+
+    def parse_exports(self, stdin):
         # Parse and load environment variables from bash
         for decl in stdin:
             if decl is None:
