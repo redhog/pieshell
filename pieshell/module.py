@@ -11,6 +11,8 @@ class Module(types.ModuleType):
         return self._scope[name]
     def __setattr__(self, name, value):
         self._scope[name] = value
+    def __dir__(self):
+        return dict.keys(self._scope)
 
 class Loader(object):
     def __init__(self, path):
@@ -28,7 +30,9 @@ class Finder(object):
         filename = fullname.split(".")[-1] + ".pysh"
         paths = sys.path
         if path is not None:
-            paths = [path]
+            paths = path
+        if not isinstance(paths, (list, tuple)):
+            paths = [paths]
         found = None
         for path in paths:
             if path == "": path = "."
