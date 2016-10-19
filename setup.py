@@ -1,7 +1,11 @@
 #! /usr/bin/python
 
 from setuptools import setup, find_packages
+import os.path
 
+versionfile = os.path.join(os.path.dirname(__file__), "pieshell/version.py")
+with open(versionfile) as f:
+    exec f.read()
 
 setup(
     name = "pieshell",
@@ -15,7 +19,7 @@ It can be used in two major ways:
 """,
     keywords = "Python shell pipelines suprocess",
     install_requires = ["signalfd"],
-    version = "0.0.6",
+    version = version,
     author = "Egil Moeller",
     author_email = "egil.moller@piratpartiet.se",
     license = "GPL",

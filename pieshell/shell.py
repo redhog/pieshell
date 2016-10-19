@@ -4,6 +4,7 @@ import code
 
 from . import environ
 from . import log
+from . import version
 
 # Example usage
 # for line in env.find(".", name='foo*', type='f') | env.grep("bar.*"):
@@ -75,12 +76,15 @@ pieshell FILE.pysh
 pieshell --cmd='any valid pieshell command or python statement'
 pieshell --test
 pieshell --help
+pieshell --version
 pieshell --ptpython
     Fancy editing environment based on ptpython (pip install ptpython)
 pieshell --log=NAME,NAME,NAME
 
 
 """
+    elif kws.get("version", False):
+        print version.version
     elif kws.get("test", False):
         test()
     else:

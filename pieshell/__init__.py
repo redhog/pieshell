@@ -5,3 +5,4 @@ from environ import *
 from shell import *
 from builtins import *
 from module import *
+from version import *
