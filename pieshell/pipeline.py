@@ -552,5 +552,5 @@ class CmdRedirect(Pipeline):
         log.log(indentation + "Running [%s] with %s" % (repr(self), repr(redirects)), "cmd")
 
         res = self.pipeline._run(redirects.merge(self.cmd_redirects), indentation + "  ")
-        self._redirects = self.pipeline.redirects
+        self._redirects = self.pipeline._redirects
         return res
