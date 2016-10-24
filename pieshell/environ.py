@@ -71,13 +71,12 @@ class Environment(object):
         scope = self._scope or self._exports
         arg = arg % scope
         arg = os.path.expanduser(arg)
-        relative = not arg.startswith("/")
         res = glob.glob(self._expand_path(arg))
-        if not res: res = [arg]
+        if not res: return [arg]
         if self._cwd != "/":
             for idx in xrange(0, len(res)):
                 if res[idx].startswith(self._cwd + "/"):
-                    res[idx] = res[idx][len(self._cwd + "/"):]
+                    res[idx] = "./" + res[idx][len(self._cwd + "/"):]
         return res
     def _cd(self, cwd):
         cwd = self._expand_path(cwd)
