@@ -135,26 +135,25 @@ class Redirects(object):
     def __init__(self, *redirects, **kw):
         self.redirects = {}
         for redirect in redirects:
-            if isinstance(redirect, Redirects):
-                for item in redirect.redirects.values():
-                    self.register(Redirect(item))
-            else:
-                self.register(redirect)
+            self.register(redirect)
     def register(self, redirect):
-        if not isinstance(redirect, Redirect):
-            redirect = Redirect(redirect)
-        if redirect.source is None:
-            del self.redirects[redirect.fd]
+        if isinstance(redirect, Redirects):
+            for item in redirect.redirects.itervalues():
+                self.register(item)
         else:
-            self.redirects[redirect.fd] = redirect
+            if not isinstance(redirect, Redirect):
+                redirect = Redirect(redirect)
+            if redirect.source is None:
+                del self.redirects[redirect.fd]
+            else:
+                self.redirects[redirect.fd] = redirect
         return self
     def redirect(self, *arg, **kw):
         self.register(Redirect(*arg, **kw))
         return self
     def merge(self, other):
         self = Redirects(self)
-        for redirect in other.redirects.itervalues():
-            self.register(redirect)
+        self.register(other)
         return self
     def find_free_fd(self):
         return max([redirect.fd
@@ -172,7 +171,7 @@ class Redirects(object):
         for redirect in self.redirects.itervalues():
             redirects.append(redirect.move(new_fd))
             new_fd += 1
-        log.log("After move: %s" % repr(Redirects(*redirects, defaults=False)), "fd")
+        log.log("After move: %s" % repr(Redirects(*redirects)), "fd")
         return redirects
     def perform(self):
         try:
@@ -197,6 +196,17 @@ class Redirects(object):
             redirect.close_source_fd()
     def __getattr__(self, name):
         return self.redirects[Redirect.fd_names[name]]
+    @classmethod
+    def _coerce(cls, thing, direction):
+        if thing is None:
+            thing = "/dev/null"
+        if isinstance(thing, (str, unicode)):
+            thing = Redirect(direction, thing)
+        if isinstance(thing, Redirect):
+            thing = Redirects(thing)
+        if not isinstance(thing, Redirects):
+            raise ValueError(type(thing))
+        return thing
     def __repr__(self):
         redirects = self.redirects.values()
         redirects.sort(lambda a, b: cmp(a.fd, b.fd))
