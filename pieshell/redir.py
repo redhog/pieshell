@@ -16,8 +16,16 @@ try:
 except:
     MAXFD = 256
 
-class PIPE(object): pass
-class TMP(object): pass
+class SpecialRedirect(object):
+    def __init__(self, name):
+        self.name = name
+    def __str__(self):
+        return self.name
+    def __repr__(self):
+        return self.name
+
+PIPE = SpecialRedirect("PIPE")
+TMP = SpecialRedirect("TMP")
 
 def flags_to_string(flags):
     return ",".join([name[2:]
