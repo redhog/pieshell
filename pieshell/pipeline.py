@@ -37,6 +37,16 @@ def pipeline_repr(obj):
 __builtin__.repr = pipeline_repr
 
 
+class PipelineFailed(Exception):
+    def __init__(self, pipeline):
+        self.pipeline = pipeline
+    def __str__(self):
+        return "%s failed:\n%s" % (
+            self.pipeline,
+            "\n\n================================\n\n".join(
+                [proc.__repr__(display_tmp_content=True)
+                 for proc in self.pipeline.failed_processes]))
+
 class RunningPipeline(object):
     def __init__(self, processes, pipeline):
         self.processes = processes
@@ -46,7 +56,20 @@ class RunningPipeline(object):
     def wait(self):
         while reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
             iterio.get_io_manager().handle_io()
-
+        if self.failed_processes:
+            exc = PipelineFailed(self)
+            for proc in self.processes:
+                proc.load_output_files()
+            raise exc
+    @property
+    def failed_processes(self):
+        return [proc
+                for proc in self.processes
+                if (not proc.iohandler.is_running
+                    and proc.iohandler.last_event["ssi_status"] != 0)]
+    def remove_output_files(self):
+        for proc in self.pipeline.processes:
+            proc.remove_output_files()
     def __repr__(self):
         return repr(self.pipeline)
 
@@ -54,6 +77,21 @@ class RunningItem(object):
     def __init__(self, cmd, iohandler):
         self.cmd = cmd
         self.iohandler = iohandler
+    @property
+    def output_files(self):
+        return {fd: redirect.pipe
+                for fd, redirect in self.cmd._redirects.redirects.iteritems()
+                if isinstance(redirect.pipe, (str, unicode))}
+    def remove_output_files(self):
+        for fd, name in self.output_files.iteritems():
+            os.unlink(name)
+    def load_output_files(self):
+        if self.output_content is not None: return
+        self.output_content = {}
+        for fd, name in self.output_files.iteritems():
+            with open(name) as f:
+                self.output_content[fd] = f.read()
+        self.remove_output_files()
     def __getattr__(self, name):
         return getattr(self.iohandler, name)
 
@@ -64,7 +102,8 @@ class RunningFunction(RunningItem):
 class RunningProcess(RunningItem):
     def __init__(self, cmd, pid):
         RunningItem.__init__(self, cmd, iterio.ProcessSignalHandler(pid))
-    def __repr__(self):
+        self.output_content = None
+    def __repr__(self, display_tmp_content=False):
         status = []
         last_event = self.iohandler.last_event
         if last_event:
@@ -75,13 +114,20 @@ class RunningProcess(RunningItem):
                 status.append("signal=%s" % self.iohandler.last_event["ssi_status"])
         else:
             status.append("exit_code=%s" % self.iohandler.last_event["ssi_status"])
+            if len(self.output_files):
+                for fd, output_file in self.output_files.iteritems():
+                    status.append("%s=%s" % (fd, output_file))
         if status:
             status = ' (' + ', '.join(status) + ')'
         else:
             status = ''
-        return '%s%s' % (self.iohandler.pid, status)
-
-
+        res = '%s%s' % (self.iohandler.pid, status)
+        if display_tmp_content:
+            self.load_output_files()
+            res += "\n"
+            for fd, value in self.output_content.iteritems():
+                res += "%s content:\n%s\n" % (fd, value) 
+        return res
 
 # help() doesn't let you override help on objects, only on classes, so
 # make everything a class...
@@ -396,13 +442,13 @@ class Command(BaseCommand):
 
         log.log(indentation + "  %s: Command line %s with %s" % (pid, ' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
 
-        proc = RunningProcess(self, pid)
-        self._running_processes.append(proc)
+        self._running_process = RunningProcess(self, pid)
+        self._running_processes.append(self._running_process)
 
         redirects.close_source_fds()
 
         self._pid = pid
-        self._redirects = proc.redirects = redirects
+        self._redirects = self._running_process.redirects = redirects
 
         return self._running_processes
 
