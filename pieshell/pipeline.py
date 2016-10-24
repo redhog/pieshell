@@ -41,7 +41,7 @@ class PipelineFailed(Exception):
     def __init__(self, pipeline):
         self.pipeline = pipeline
     def __str__(self):
-        return "%s failed:\n%s" % (
+        return "Pipeline failed: %s:\n\n%s" % (
             self.pipeline,
             "\n\n================================\n\n".join(
                 [proc.__repr__(display_tmp_content=True)
@@ -204,10 +204,7 @@ class Pipeline(DescribableObject):
             pipeline = self.run()
             pipeline.wait()
         except (Exception, KeyboardInterrupt), e:
-            procs = ""
-            if pipeline is not None:
-                procs = " in %s" % repr(pipeline.processes)
-            log.log("Error: %s%s" % (e, procs), "error")
+            log.log("Error:\n%s" % (e,), "error")
             sys.last_traceback = sys.exc_info()[2]
             import pdb
             pdb.pm()
