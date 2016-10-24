@@ -196,7 +196,7 @@ class Pipeline(DescribableObject):
         """Runs the pipelines with the specified redirects and returns
         a RunningPipeline instance."""
         if not isinstance(redirects, redir.Redirects):
-            redirects = redir.Redirects(*redirects)
+            redirects = redir.Redirects(self._env._redirects, *redirects)
         with copy.copy_session() as sess:
             self = copy.deepcopy(self)
             processes = self._run(redirects, sess)
