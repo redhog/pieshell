@@ -17,9 +17,12 @@ It can be used in two major ways:
   * [Interfacing between python functions and shell commands](#interfacing-between-python-functions-and-shell-commands)
   * [Environment variables](#environment-variables)
   * [Argument expansion](#argument-expansion)
+  * [Processes](processes)
+  * [Error handling](#error-handling)
 * [As a python module](#as-a-python-module)
   * [Environment variables](#environment-variables-1)
   * [Argument expansion](#argument-expansion-1)
+  * [Pysh modules](#pysh-modules)
 * [Configuration](#configuration)
 * [Copyright](#copyright)
 
@@ -201,6 +204,71 @@ wrapped in a call to R(), e.g. R("my * string * here")ñ.
 
   * Pattern matching is done using glob.glob()
 
+## Processes
+
+A running pipeline is represented by a RunningPipeline instance. This
+object is returned by the Pipeline.run() and
+Pipeline.run_interactive() methods. In interactive shell mode the
+RunningPipeline instance for the last executed pipeline is available
+in the last_pipeline variable.
+
+A RunningPipeline instance can be used to extract events and statuses
+of the processes involved in the pipeline:
+
+* RunningPipeline.processes is a list of RunningItem instances, each
+  representing an external process or a python function.
+
+* RunningPipeline.failed_processes is a list of RunningItem instances
+  for those processes in the pipeline that have failed (returned a
+  non-zero exit status).
+
+* RunningPipeline.pipeline is a (deep) copy of the original pipeline
+  object, with additional run status added, e.g. links to processes,
+  exit status etc.
+
+* RunningPipeline.wait() waits for all processes in the pipeline to
+  terminate.
+
+A RunningItem instance represents an external process or a python
+function:
+
+* RunningProcess.cmd points to the part of the
+  RunningPipeline.pipeline structure that gave rise to this process.
+
+* RunningProcess.iohandler.is_running is True if the process is still
+  running.
+
+* RunningProcess.iohandler.last_event contains a dictionary of the
+  members of the last event from the process. The members have the
+  same names and meaning as the members of the signalfd_siginfo
+  struct, see "man signalfd" for details.
+
+* RunningProcess.output_content contains a dictionary of the output of
+  any STRING redirection for the process with the file descriptors as
+  keys.
+
+## Error handling
+
+When a pipeline fails, e.g. by one of the involved processes exiting
+with a non-zero status, RunningPipeline.wait() and
+Pipeline.run_interactive() will throw a PipelineFailed exception after
+all processes have exited.
+
+* PipelineFailed.pipeline holds a reference to the RunningPipeline
+  instance that generated the exception.
+
+If a pipeline is interrupted with CTRL-C, a PipelineInterrupted is
+raised.
+
+* PipelineInterrupted.pipeline holds a reference to the
+  RunningPipeline instance.
+
+If you want to catch errors in a script, you can use normal Python
+exception handling:
+
+    try:
+    except PipelineFailed, e:
+        e.pipeline.failed_processes[0].pipeline
 
 # As a python module
 
@@ -241,6 +309,16 @@ Variable expansion is only done on environment variables, as there is
 no way for pieshell to find out about the right scope to do variable
 lookups in in any given situation.
 
+## Pysh modules
+
+In addition to being able to use pieshell code in ordinary python
+modules using this slightly more verbose syntax, pieshell supports
+importing modules named modulename.pysh rather than modulename.py.
+Pysh modules support the full syntax of the interactive pieshell
+console. Pysh modules can be imported using the standard import syntax
+as soon as pieshell itself has been imported, and from the interactive
+pieshell.
+
 # Configuration
 
 When running pieshell in interactive mode it executes
@@ -249,6 +327,43 @@ configure the interactive environment the same way ~/.bashrc can be
 used to configure the bash shell. For example it can be used to load
 python modules, execute shell pipelines or set environment variables.
 An example config file is supplied in contrib/cofig.
+
+# Builtins
+
+While pieshell lets you pipe to and from ordinary python functions,
+they don't offer the same syntax and tab-completion as external
+commands (e.g. 'myfunction.arg1.arg2(name=value)'), they can't modify
+the environment or do fancy redirects. Builtin commands provide all of
+this, at the cost of a slightly clumsier syntax:
+
+    class MyMagicBuiltin(pieshell.Builtin):
+        """More magic to the people
+        """
+        name = "magic"
+
+        def _run(self, redirects, sess, indentation = ""):
+            # redirects is an instance of pieshell.Redirects
+            #
+            # sess is an opaque data structure that must be passed to
+            # any call to _run() you do yourself from this method (or
+            # any function it calls).
+            #
+            # indentation is a string containing only whitespace, to
+            # be prepended to any debug printing lines you print.
+            #
+            # Returns a list of instances of some pieshell.RunningItem
+            # subclass
+
+            self._cmd = self._env.find(
+                ".", "-name", "%s.txt" % self._arg[1]) | self._env.tac
+            return self._cmd._run(redirects, sess, indentation)
+
+
+        # Optional for tab completion
+        def __dir__(self):
+            return ["light", "dark"]
+    pipeline.BuiltinRegistry.register(CdBuiltin)
+
 
 # Copyright
 

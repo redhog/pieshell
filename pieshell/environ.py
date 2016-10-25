@@ -2,8 +2,10 @@ import os
 import sys
 import traceback
 import glob
+import code
 
 from . import pipeline
+from . import redir
 import pieshell
 
 
@@ -31,7 +33,7 @@ class Environment(object):
         Command(env, "COMMAND_NAME")
     """
 
-    def __init__(self, cwd = None, exports = None, interactive = False):
+    def __init__(self, cwd = None, exports = None, interactive = False, redirects = None):
         """Creates a new environment from scratch. Takes the same
         arguments as __call__."""
         self._cwd = os.getcwd()
@@ -40,6 +42,12 @@ class Environment(object):
         self._exports = exports
         self._interactive = interactive
         self._scope = None
+        if redirects is None:
+            redirects = redir.Redirects()
+            redirects.redirect(0, 0, borrowed=True)
+            redirects.redirect(1, 1, borrowed=True)
+            redirects.redirect(2, redir.STRING)
+        self._redirects = redirects
     @property
     def _exports(self):
         return self._exports_value or os.environ
@@ -63,13 +71,12 @@ class Environment(object):
         scope = self._scope or self._exports
         arg = arg % scope
         arg = os.path.expanduser(arg)
-        relative = not arg.startswith("/")
         res = glob.glob(self._expand_path(arg))
-        if not res: res = [arg]
+        if not res: return [arg]
         if self._cwd != "/":
             for idx in xrange(0, len(res)):
                 if res[idx].startswith(self._cwd + "/"):
-                    res[idx] = res[idx][len(self._cwd + "/"):]
+                    res[idx] = "./" + res[idx][len(self._cwd + "/"):]
         return res
     def _cd(self, cwd):
         cwd = self._expand_path(cwd)
@@ -79,7 +86,7 @@ class Environment(object):
         if self._interactive:
             os.chdir(cwd)
         return self
-    def __call__(self, cwd = None, exports = None, interactive = None):
+    def __call__(self, cwd = None, exports = None, interactive = None, redirects = None):
         """Creates a new environment based on the current ones. All
         configuration is copied, unless specifically overridden.
 
@@ -97,7 +104,9 @@ class Environment(object):
             exports = self._exports
         if interactive is None:
             interactive = self._interactive
-        res = type(self)(cwd = self._cwd, exports = exports, interactive = interactive)
+        if redirects is None:
+            redirects = self._redirects
+        res = type(self)(cwd = self._cwd, exports = exports, interactive = interactive, redirects = redirects)
         if cwd is not None:
             res.cd(cwd)
         return res
@@ -111,6 +120,22 @@ class Environment(object):
             return pipeline.BaseCommand(self)
         else:
             return pipeline.BaseCommand(self, [name])
+    def _coerce(self, thing, direction):
+        if thing is None:
+            thing = "/dev/null"
+        if isinstance(thing, (str, unicode)):
+            thing = redir.Redirect(direction, thing)
+        if isinstance(thing, redir.Redirect):
+            thing = redir.Redirects(thing, defaults=False)
+        if not isinstance(thing, redir.Redirect):
+            raise ValueError(type(thing))
+        return thing
+    def __ror__(self, other):
+        """Sets default redirects."""
+        self._redirects.register(self._redirects._coerce(other, 'stdin'))
+    def __or__(self, other):
+        """Sets default redirects."""
+        self._redirects.register(self._redirects._coerce(other, 'stdout'))
     def __repr__(self):
         """Prints the current prompt"""
         if self._interactive:
@@ -125,6 +150,7 @@ class Environment(object):
             if not pth.startswith("/"):
                 pth = os.path.join(self._cwd, pth)
             res.extend(os.listdir(os.path.abspath(pth)))
+        res.extend(pipeline.BuiltinRegistry.builtins.keys())
         res.sort()
         return res
 
@@ -176,7 +202,7 @@ class EnvScope(dict):
     def execute_file(self, filename):
         with open(filename) as f:
             content = f.read()
-        exec content in self
+        code.InteractiveConsole(locals=self).runsource(content, filename, "exec")
 
     def execute_expr(self, expr):
         exec expr in self
