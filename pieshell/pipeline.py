@@ -68,8 +68,7 @@ class RunningPipeline(object):
     def failed_processes(self):
         return [proc
                 for proc in self.processes
-                if (not proc.iohandler.is_running
-                    and proc.iohandler.last_event["ssi_status"] != 0)]
+                if not proc.is_running and proc.is_failed]
     def remove_output_files(self):
         for proc in self.pipeline.processes:
             proc.remove_output_files()
@@ -81,6 +80,9 @@ class RunningItem(object):
         self.cmd = cmd
         self.iohandler = iohandler
         self.output_content = {}
+    @property
+    def is_running(self):
+        return self.iohandler.is_running
     def handle_finish(self):
         for fd, redirect in self.cmd._redirects.redirects.iteritems():
             if not isinstance(redirect.pipe, redir.STRING): continue
@@ -100,6 +102,9 @@ class RunningItem(object):
         return getattr(self.iohandler, name)
 
 class RunningFunction(RunningItem):
+    @property
+    def is_failed(self):
+        return self.iohandler.exception is not None
     def __repr__(self):
         return '%s(%s)' % (self.cmd._function_name(), ",".join(self.iohandler._repr_args()))
 
@@ -115,6 +120,9 @@ class RunningProcess(RunningItem):
             return res
     def __init__(self, cmd, pid):
         RunningItem.__init__(self, cmd, self.ProcessSignalHandler(self, pid))
+    @property
+    def is_failed(self):
+        return self.iohandler.last_event["ssi_status"] != 0
     def __repr__(self, display_output=False):
         status = []
         last_event = self.iohandler.last_event
@@ -426,7 +434,12 @@ class Command(BaseCommand):
             return thing
       
         # FIXME: Thing needs copying
-        arg_pipe = thing._run(redir.Redirects(redir.Redirect(direction, redir.PIPE)), sess, indentation + "  ")
+        arg_pipe = thing._run(
+            redir.Redirects(
+                self._env._redirects,
+                redir.Redirect(direction, redir.PIPE)),
+            sess,
+            indentation + "  ")
 
         fd = redirects.find_free_fd()
         redirects.redirect(
@@ -547,7 +560,7 @@ class Function(Pipeline):
                 *self._arg, **self._kw)
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
-
+        
         self._running_process = RunningFunction(
             self,
             iterio.LineOutputHandler(

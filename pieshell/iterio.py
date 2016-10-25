@@ -121,6 +121,7 @@ class OutputHandler(IOHandler):
         self.iter = iter
         self.is_running = True
         self.recursion = False
+        self.exception = None
         IOHandler.__init__(self, fd, borrowed)
 
     def destroy(self):
@@ -144,6 +145,10 @@ class OutputHandler(IOHandler):
         except StopIteration:
             self.destroy()
             return True
+        except Exception, e:
+            self.exception = e
+            self.destroy()
+            return True
 
     def _repr_args(self):
         args = IOHandler._repr_args(self)
@@ -163,6 +168,10 @@ class LineOutputHandler(OutputHandler):
             log.log("WRITE %s, %s" % (self.fd, repr(val)), "io")
         except StopIteration:
             log.log("STOP ITERATION %s" % self.fd, "ioevent")
+            self.destroy()
+            return True
+        except Exception, e:
+            self.exception = e
             self.destroy()
             return True
 
