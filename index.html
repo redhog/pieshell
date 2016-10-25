@@ -1,0 +1,410 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Pieshell by redhog</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1 class="header">Pieshell</h1>
+        <p class="header">Python shell environment that combines the expressiveness of shell pipelines with the prower of python iterators</p>
+
+        <ul>
+          <li class="download"><a class="buttons" href="https://github.com/redhog/pieshell/zipball/master">Download ZIP</a></li>
+          <li class="download"><a class="buttons" href="https://github.com/redhog/pieshell/tarball/master">Download TAR</a></li>
+          <li><a class="buttons github" href="https://github.com/redhog/pieshell">View On GitHub</a></li>
+        </ul>
+
+        <p class="header">This project is maintained by <a class="header name" href="https://github.com/redhog">redhog</a></p>
+
+
+      </header>
+      <section>
+        <h1>
+<a id="about" class="anchor" href="#about" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>About</h1>
+
+<p>Pieshell is a Python shell environment that combines the
+expressiveness of shell pipelines with the prower of python iterators.</p>
+
+<p>It can be used in two major ways:</p>
+
+<ul>
+<li>As an interactive shell replacing e.g. bash</li>
+<li>As an ordinary python module replacing e.g. subprocess.Popen</li>
+</ul>
+
+<h1>
+<a id="table-of-contents" class="anchor" href="#table-of-contents" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Table of contents</h1>
+
+<ul>
+<li>
+<a href="#as-a-shell">As a shell</a>
+
+<ul>
+<li><a href="#executing-basic-commands">Executing basic commands</a></li>
+<li><a href="#full-syntsax-for-command-lines">Full syntsax for command lines</a></li>
+<li><a href="#redirects">Redirects</a></li>
+<li><a href="#interfacing-between-python-functions-and-shell-commands">Interfacing between python functions and shell commands</a></li>
+<li><a href="#environment-variables">Environment variables</a></li>
+<li><a href="#argument-expansion">Argument expansion</a></li>
+</ul>
+</li>
+<li>
+<a href="#as-a-python-module">As a python module</a>
+
+<ul>
+<li><a href="#environment-variables-1">Environment variables</a></li>
+<li><a href="#argument-expansion-1">Argument expansion</a></li>
+<li><a href="#pysh-modules">Pysh modules</a></li>
+</ul>
+</li>
+<li><a href="#configuration">Configuration</a></li>
+<li><a href="#copyright">Copyright</a></li>
+</ul>
+
+<h1>
+<a id="as-a-shell" class="anchor" href="#as-a-shell" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>As a shell</h1>
+
+<h2>
+<a id="executing-basic-commands" class="anchor" href="#executing-basic-commands" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Executing basic commands</h2>
+
+<p>To start pieshell in interactive mode, just run the command pieshell:</p>
+
+<pre><code>$ pieshell
+</code></pre>
+
+<p>The interactive pieshell environment supports all normal python syntax.</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; print 3+4
+7
+</code></pre>
+
+<p>In addition, you can run programs just like in any shell by writing their names</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; ls
+build  deps  dist  LICENSE.txt  pieshell  pieshell.egg-info  README.md  setup.py
+</code></pre>
+
+<p>Parameters to programs however have to be given as proper python strings
+within parenthesis, like a python function call</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; ls("-a")
+.  ..  build  deps  dist  .git  .gitignore  LICENSE.txt  pieshell  pieshell.egg-info  .#README.md  README.md  setup.py
+</code></pre>
+
+<p>Piping the standard output of one command to the standard input of
+another works just like in bash</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; ls("-a") | grep("-e", ".py")
+setup.py
+</code></pre>
+
+<p>Changing directory is done using the command cd:</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; cd("..")
+140:/home/redhog/Projects/beta &gt;&gt;&gt; 
+</code></pre>
+
+<h2>
+<a id="full-syntsax-for-command-lines" class="anchor" href="#full-syntsax-for-command-lines" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Full syntsax for command lines</h2>
+
+<p>To execute commands that require a path, for example ones in the current directory, or commands with a dot in their names</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; _("./setup.py", "--help")
+Common commands: (see '--help-commands' for more)
+...
+</code></pre>
+
+<p>The underscore represents the virtual root command that has no parameters, not even a command name. In general, there are two equivalent syntaxes for parameters: as function parameter strings, and as attribute names. The two syntaxes can be mixed freely. All of the following are equivalent:</p>
+
+<pre><code>_("foo", "bar", "fie")
+_.foo("bar", "fie")
+_.foo.bar.fie()
+foo.bar.fie()
+foo.bar.fie
+</code></pre>
+
+<p>Example usage:</p>
+
+<pre><code>git.diff("-U")
+</code></pre>
+
+<p>In addition to these two generic syntaxes, the function call syntax also supports named parameters, which are converted into "--name=value" pairs. Note that the order can not be guaranteed as named parameters are sent around as dictionaries inside python:</p>
+
+<pre><code>git.diff(unified=4)
+</code></pre>
+
+<h2>
+<a id="redirects" class="anchor" href="#redirects" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Redirects</h2>
+
+<p>Standard out and standard in of a pipeline can be redirected to a file
+by piping to or from a string (the filename). As a special case, None
+is a short hand for "/dev/null"</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; ls | "foo"
+
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; "foo" | cat
+bar
+build
+deps
+dist
+foo
+LICENSE.txt
+pieshell
+pieshell.egg-info
+README.md
+setup.py
+
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; ls | None
+</code></pre>
+
+<p>Redirects can also be made with a more explicit syntax that allows
+redirecting other file descriptors than stdin and stdout:</p>
+
+<pre><code>139:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; cat | Redirect("stdin", "foo") | Redirect("stdout", "bar")
+</code></pre>
+
+<p>The constructor for redirect takes the following arguments:</p>
+
+<pre><code>Redirect(fd, source, flag=None, mode=0777)
+</code></pre>
+
+<p>fd can be either an int, or one of "stdin", "stdout" and "stderr.
+source is either a string filename, or an int file descriptor. flag
+and mode have the same semantics as for os.open(). Flags do not have
+to be given for stdin, stdout and stderr / fd 0, 1 and 2 and defaults
+to os.O_RDONLY or os.O_RDONLY | os.O_CREAT.</p>
+
+<h2>
+<a id="interfacing-between-python-functions-and-shell-commands" class="anchor" href="#interfacing-between-python-functions-and-shell-commands" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Interfacing between python functions and shell commands</h2>
+
+<p>Shell commands are first class python objects, and their input and
+output can be interacted with easily from python in the form of
+iterators. Iterating over a shell command iterates over the lines of
+its standard out</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; list(ls("-a"))
+['.', '..', 'build', 'deps', 'dist', '.git', '.gitignore', 'LICENSE.txt', 'pieshell', 'pieshell.egg-info', '.#README.md', 'README.md', 'setup.py']
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; for x in ls("-a"):
+...   if x.endswith('.py'):
+...      print x
+... 
+setup.py
+</code></pre>
+
+<p>Piping an iterator into a shell command, sends its items as lines to
+the standard in of the shell command</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; list(["foo", "bar.py", "fie.py"] | grep("-e", ".py"))
+['bar.py', 'fie.py']
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; def foo():
+...     yield "hello"
+...     yield "world"
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; foo() | cat
+hello
+world
+</code></pre>
+
+<p>In addtion, iterators and pipelines may be used as arguments to
+commands and will be seen by the command as a filename, which when
+opened and read from will produce the output of that iterator as
+lines, or the standard output of the pipeline.</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; list(cat(["foo", "bar"]))
+['foo', 'bar']
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; list(cat(["foo", "bar"] | cat))
+['foo', 'bar']
+</code></pre>
+
+<h2>
+<a id="environment-variables" class="anchor" href="#environment-variables" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Environment variables</h2>
+
+<p>Environment variables are available directly in the shell as
+variables, together with any local python variables. In addition, they
+are available in the dictionary exports.</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; LANG
+'en_US.UTF-8'
+</code></pre>
+
+<p>Assigning to the name of an already exported environment variable
+updates the value of that variable.</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; LANG = "sv_SE.UTF-8"
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; exports["LANG"]
+'sv_SE.UTF-8'
+</code></pre>
+
+<p>Assigning to a variable name not already used as an environment
+variable creates a local python variable.</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; foo = "hello"
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; "foo" in exports
+False
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; foo
+'hello'
+</code></pre>
+
+<p>To export a new variable, you have to assign it in the exports
+dictionary.</p>
+
+<pre><code>140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; exports["bar"] = "world"
+140:/home/redhog/Projects/beta/pieshell &gt;&gt;&gt; bar
+'world'
+</code></pre>
+
+<h2>
+<a id="argument-expansion" class="anchor" href="#argument-expansion" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Argument expansion</h2>
+
+<p>All parameter strings in commands are subject to expansion unless
+wrapped in a call to R(), e.g. R("my * string * here")ñ.</p>
+
+<ul>
+<li><p>"~" and "~username" are expanded using os.path.expanduser()</p></li>
+<li><p>Variable expansion is done using the python % operator on python
+variables as well as environment variables.</p></li>
+<li><p>Pattern matching is done using glob.glob()</p></li>
+</ul>
+
+<h1>
+<a id="as-a-python-module" class="anchor" href="#as-a-python-module" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>As a python module</h1>
+
+<pre><code>&gt;&gt;&gt; from pieshell import *
+</code></pre>
+
+<p>All functionality available in the interactive shell is available when
+using pieshell as an ordinary python module. However, a slighly more
+cumbersome syntax is required.</p>
+
+<p>In particular, shell commands can not be run just by writing their
+names. Instead, they have to be accessed as members of the "env"
+object:</p>
+
+<pre><code>&gt;&gt;&gt; list(env.ls("-a") | env.grep("-e", "io"))
+["iterio.py", "iterio.pyc"]
+</code></pre>
+
+<p>Commands are also not run with standard out to the screen when simply
+printed using the repr() function but must instead be used as
+iterators as is done above using the list() function.</p>
+
+<p>The env object holds the current working directory, which can be changed with</p>
+
+<pre><code>&gt;&gt;&gt; env.cd("..")    
+</code></pre>
+
+<p>You can also create multiple environments and use them
+siumultaneously, even within the same pipeline</p>
+
+<pre><code>&gt;&gt;&gt; env2 = env()
+&gt;&gt;&gt; env2.cd("somedir")
+</code></pre>
+
+<h2>
+<a id="environment-variables-1" class="anchor" href="#environment-variables-1" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Environment variables</h2>
+
+<p>Environment variables are available as a dictionary in env._exports.</p>
+
+<h2>
+<a id="argument-expansion-1" class="anchor" href="#argument-expansion-1" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Argument expansion</h2>
+
+<p>Variable expansion is only done on environment variables, as there is
+no way for pieshell to find out about the right scope to do variable
+lookups in in any given situation.</p>
+
+<h2>
+<a id="pysh-modules" class="anchor" href="#pysh-modules" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Pysh modules</h2>
+
+<p>In addition to being able to use pieshell code in ordinary python
+modules using this slightly more verbose syntax, pieshell supports
+importing modules named modulename.pysh rather than modulename.py.
+Pysh modules support the full syntax of the interactive pieshell
+console. Pysh modules can be imported using the standard import syntax
+as soon as pieshell itself has been imported, and from the interactive
+pieshell.</p>
+
+<h1>
+<a id="configuration" class="anchor" href="#configuration" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Configuration</h1>
+
+<p>When running pieshell in interactive mode it executes
+~/.config/pieshell at startup if it exists. This file can be used to
+configure the interactive environment the same way ~/.bashrc can be
+used to configure the bash shell. For example it can be used to load
+python modules, execute shell pipelines or set environment variables.
+An example config file is supplied in contrib/cofig.</p>
+
+<h1>
+<a id="builtins" class="anchor" href="#builtins" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Builtins</h1>
+
+<p>While pieshell lets you pipe to and from ordinary python functions,
+they don't offer the same syntax and tab-completion as external
+commands (e.g. 'myfunction.arg1.arg2(name=value)'), they can't modify
+the environment or do fancy redirects. Builtin commands provide all of
+this, at the cost of a slightly clumsier syntax:</p>
+
+<pre><code>class MyMagicBuiltin(pieshell.Builtin):
+    """More magic to the people
+    """
+    name = "magic"
+
+    def _run(self, redirects, sess, indentation = ""):
+        # redirects is an instance of pieshell.Redirects
+        #
+        # sess is an opaque data structure that must be passed to
+        # any call to _run() you do yourself from this method (or
+        # any function it calls).
+        #
+        # indentation is a string containing only whitespace, to
+        # be prepended to any debug printing lines you print.
+        #
+        # Returns a list of instances of some pieshell.RunningItem
+        # subclass
+
+        self._cmd = self._env.find(
+            ".", "-name", "%s.txt" % self._arg[1]) | self._env.tac
+        return self._cmd._run(redirects, sess, indentation)
+
+
+    # Optional for tab completion
+    def __dir__(self):
+        return ["light", "dark"]
+pipeline.BuiltinRegistry.register(CdBuiltin)
+</code></pre>
+
+<h1>
+<a id="copyright" class="anchor" href="#copyright" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Copyright</h1>
+
+<p>Pieshell copyright 2016 Egil Möller <a href="mailto:egil.moller@piratpartiet.se">egil.moller@piratpartiet.se</a></p>
+
+<p>Pieshell is free software: you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.</p>
+
+<p>This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.</p>
+
+<p>You should have received a copy of the GNU Lesser General Public
+License along with this program. If not, see
+<a href="http://www.gnu.org/licenses/">http://www.gnu.org/licenses/</a>.</p>
+      </section>
+      <footer>
+        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
+      </footer>
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+		
+  </body>
+</html>
