@@ -48,11 +48,13 @@ if True:
     def prompt(self):
         if getattr(prompt_state, "in_prompt", False):
             return old_prompt(self)
+        last_pipeline = self.last_pipeline
         prompt_state.in_prompt = True
         try:
             return "%s@%s:%s%s >>> " % (getpass.getuser(), socket.gethostname(), compress_user(self._cwd), parse_git_branch(self))
         finally:
             prompt_state.in_prompt = False
+            self.last_pipeline = last_pipeline
 
     Environment.__repr__ = prompt
 
