@@ -1,0 +1,3 @@
+output = list(ls | cat)
+output.extend(list(echo("hello world")))
+foo = 3
