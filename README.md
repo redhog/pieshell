@@ -372,6 +372,7 @@ this, at the cost of a slightly clumsier syntax:
 
 A short list of tools that might be usefull together with this project:
 
+* [psutil](http://pythonhosted.org/psutil) - python api for getting ps / top style information about a process
 * [ReRedirect](https://github.com/jerome-pouiller/reredirect) - redirect io for an already running process
 * [Reptyr](https://github.com/nelhage/reptyr) - move a running process to a new controlling terminal
 * [Deptyr](https://github.com/antifuchs/deptyr) - forward output for a new process to another controlling terminal
