@@ -17,3 +17,8 @@ class TestPipelines:
     def test_function_pipeline(self):
         import function_pipeline
         assert function_pipeline.output == ['Start', 'Read >Script run works<', 'End']
+
+    def test_argpipe_pipeline(self):
+        import argpipe_pipeline
+        assert "FOO" in argpipe_pipeline.output
+        assert "Read >declare -x " in argpipe_pipeline.output[2]
