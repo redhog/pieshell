@@ -1,0 +1,5 @@
+output = error = None
+try:
+    output = list(bash("error_pipeline.sh"))
+except Exception, e:
+    error = e
