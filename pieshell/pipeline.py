@@ -362,6 +362,7 @@ class BaseCommand(Pipeline):
 
     def _arg_list(self, redirects = None, sess = None, indentation = ""):
         orig_redirects = redir.Redirects(redirects)
+        orig_redirects.borrow()
         def handle_arg_pipes(item):
             if redirects is not None:
                 return self._handle_arg_pipes(item, orig_redirects, redirects, sess, indentation)
@@ -460,6 +461,7 @@ class Command(BaseCommand):
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
         args = self._arg_list(redirects, sess, indentation)
+        log.log(indentation + "222Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
         pid = os.fork()
         if pid == 0:
@@ -561,6 +563,7 @@ class Function(Pipeline):
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
         
+        print "XXXXXXXXXXXXXXXXXXXXX", redirects.stdout.borrowed, redirects.stdout.source
         self._running_process = RunningFunction(
             self,
             iterio.LineOutputHandler(

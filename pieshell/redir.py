@@ -55,7 +55,7 @@ class Redirect(object):
         }
     def __init__(self, fd, source = None, flag = None, mode = 0777, pipe=None, borrowed=False):
         if isinstance(fd, Redirect):
-            fd, source, flag, mode, pipe = fd.fd, fd.source, fd.flag, fd.mode, fd.pipe
+            fd, source, flag, mode, pipe, borrowed = fd.fd, fd.source, fd.flag, fd.mode, fd.pipe, fd.borrowed
         if not isinstance(fd, int):
             fd = self.fd_names[fd]
         if flag is None:
@@ -66,6 +66,8 @@ class Redirect(object):
         self.mode = mode
         self.pipe = pipe
         self.borrowed = borrowed
+    def borrow(self):
+        self.borrowed = True
     def __deepcopy__(self, memo = {}):
         return type(self)(self.fd, copy.deepcopy(self.source), self.flag, self.mode, self.pipe, self.borrowed)
 
@@ -78,7 +80,8 @@ class Redirect(object):
         return source
     def close_source_fd(self):
         # FIXME: Only close source fds that come from pipes instead of this hack...
-        if isinstance(self.source, int) and self.source > 2:
+        if isinstance(self.source, int) and not self.borrowed:
+            log.log("CLOSE SOURCE %s" % (self.source,), "fd")
             os.close(self.source)
     def perform(self):
         source = self.open()
@@ -126,7 +129,10 @@ class Redirect(object):
             arrow = "-%s->" % flagmode
         else:
             arrow = "<-%s-" % flagmode
-        items = [str(self.fd), arrow, str(self.source)]
+        arrow = "%s %s %s" % (self.fd, arrow, self.source)
+        if self.borrowed:
+            arrow = "(%s)" % arrow
+        items = [arrow]
         if self.pipe is not None:
             items.append("pipe=%s" % self.pipe)
         return " ".join(items)
@@ -135,18 +141,21 @@ class Redirects(object):
     def __init__(self, *redirects, **kw):
         self.redirects = {}
         for redirect in redirects:
-            self.register(redirect)
+            if isinstance(redirect, Redirects):
+                for item in redirect.redirects.itervalues():
+                    self.register(Redirect(item))
+            else:
+                self.register(Redirect(redirect))
+    def borrow(self):
+        for redirect in self.redirects.itervalues():
+            redirect.borrow()
     def register(self, redirect):
-        if isinstance(redirect, Redirects):
-            for item in redirect.redirects.itervalues():
-                self.register(item)
+        if redirect.source is None:
+            del self.redirects[redirect.fd]
         else:
             if not isinstance(redirect, Redirect):
                 redirect = Redirect(redirect)
-            if redirect.source is None:
-                del self.redirects[redirect.fd]
-            else:
-                self.redirects[redirect.fd] = redirect
+            self.redirects[redirect.fd] = redirect
         return self
     def redirect(self, *arg, **kw):
         self.register(Redirect(*arg, **kw))
@@ -191,6 +200,8 @@ class Redirects(object):
                 os.close(i)
             except:
                 pass
+            else:
+                log.log("CLOSE OTHER FDS %s" % (i,), "fd")
     def close_source_fds(self):
         for redirect in self.redirects.itervalues():
             redirect.close_source_fd()
