@@ -10,7 +10,8 @@ debug = {
     "ioevent": False,
     "io": False,
     "signalreg": False,
-    "signal": False
+    "signal": False,
+    "test": False
     }
 
 outfd = None
