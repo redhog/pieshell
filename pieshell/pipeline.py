@@ -21,6 +21,7 @@ from . import iterio
 from . import redir
 from . import log
 
+class ITERPIPE(redir.PIPE): pass
 
 repr_state = threading.local()
 standard_repr = __builtin__.repr
@@ -105,8 +106,15 @@ class RunningFunction(RunningItem):
     @property
     def is_failed(self):
         return self.iohandler.exception is not None
-    def __repr__(self):
-        return '%s(%s)' % (self.cmd._function_name(), ",".join(self.iohandler._repr_args()))
+    def __repr__(self, display_output=False):
+        status = list(self.iohandler._repr_args())
+        if self.iohandler.exception is not None:
+            status.append(str(self.iohandler.exception))
+        if status:
+            status = ' (' + ', '.join(status) + ')'
+        else:
+            status = ''
+        return '%s%s' % (self.cmd._function_name(), status)
 
 class RunningProcess(RunningItem):
     class ProcessSignalHandler(iterio.ProcessSignalHandler):
@@ -445,7 +453,7 @@ class Command(BaseCommand):
         fd = redirects.find_free_fd()
         redirects.redirect(
             fd,
-            getattr(arg_pipe[-1].redirects, direction).pipe,
+            getattr(thing._redirects, direction).pipe,
             {"stdin": os.O_WRONLY, "stdout": os.O_RDONLY}[direction])
 
         self._running_processes.extend(arg_pipe)
@@ -539,6 +547,14 @@ class Function(Pipeline):
 
     def _run(self, redirects, sess, indentation = ""):
         Pipeline._run(self, redirects, sess, indentation)
+        
+        output_iterpipe = None
+        if (    isinstance(redirects.stdout.source, type)
+            and issubclass(redirects.stdout.source, ITERPIPE)):
+            output_iterpipe = redirects.stdout.source
+
+        if output_iterpipe:
+            redirects.redirect("stdout")
 
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
@@ -555,25 +571,34 @@ class Function(Pipeline):
 
         thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, (types.FunctionType, types.MethodType)):
-            thing = thing(
-                iterio.LineInputHandler(
-                    redirects.stdin.open(),
-                    borrowed=redirects.stdin.borrowed),
-                *self._arg, **self._kw)
+            if isinstance(redirects.stdin.source, ITERPIPE):
+                thing = thing(redirects.stdin.source.iter, *self._arg, **self._kw)
+            else:
+                thing = thing(
+                    iterio.LineInputHandler(redirects.stdin.open(False)),
+                    *self._arg, **self._kw)
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
-        
-        print "XXXXXXXXXXXXXXXXXXXXX", redirects.stdout.borrowed, redirects.stdout.source
-        self._running_process = RunningFunction(
-            self,
-            iterio.LineOutputHandler(
-                redirects.stdout.open(),
-                (convert(x) for x in thing),
-                borrowed=redirects.stdout.borrowed))
-            
-        self._redirects = self._running_process.redirects = redirects
 
-        return [self._running_process]
+        if output_iterpipe:
+            self._running_processes = []
+            self._redirects = redirects
+            self._redirects.redirect(
+                "stdout",
+                source=output_iterpipe,
+                pipe=output_iterpipe(iter=thing))
+        else:
+            self._running_process = RunningFunction(
+                self,
+                iterio.LineOutputHandler(
+                    redirects.stdout.open(False),
+                    (convert(x) for x in thing)))
+            self._running_processes = [self._running_process]
+            self._redirects = self._running_process.redirects = redirects
+
+        redirects.close_source_fds()
+
+        return self._running_processes
         
 
 class Pipe(Pipeline):
@@ -590,13 +615,18 @@ class Pipe(Pipeline):
     def _run(self, redirects, sess, indentation = ""):
         Pipeline._run(self, redirects, sess, indentation)
 
+        child_redirects = redir.Redirects(redirects)
+        child_redirects.borrow()
+
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
-        src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), sess, indentation + "  ")
-        dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), sess, indentation + "  ")
+        src = self.src._run(redir.Redirects(child_redirects).redirect("stdout", ITERPIPE), sess, indentation + "  ")
+        dst = self.dst._run(redir.Redirects(child_redirects).redirect("stdin", self.src._redirects.stdout.pipe), sess, indentation + "  ")
 
         self._redirects = self.src._redirects.merge(self.dst._redirects)
         self._redirects.register(redir.Redirect(self.src._redirects.stdin))
         self._redirects.register(redir.Redirect(self.dst._redirects.stdout))
+
+        redirects.close_source_fds()
 
         return src + dst
     def __dir__(self):
