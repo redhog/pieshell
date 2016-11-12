@@ -30,7 +30,30 @@ class CdBuiltin(pipeline.Builtin):
         except:
             return []
 
+
 pipeline.BuiltinRegistry.register(CdBuiltin)
+
+class ClearDirCacheBuiltin(pipeline.Builtin):
+    """Clear the tab completion cache
+    """
+    name = "clear_dir_cache"
+
+    def _run(self, redirects, sess, indentation = ""):
+        self.env._clear_dir_cache()
+        return []
+
+    def __dir__(self):
+        if self._arg[1:]:
+            pth = self.env._expand_path(self._path)
+        else:
+            pth = "."
+        try:
+            return [name for name in os.listdir(pth)
+                    if os.path.isdir(os.path.join(pth, name))]
+        except:
+            return []
+
+pipeline.BuiltinRegistry.register(ClearDirCacheBuiltin)
 
 
 class BashSource(pipeline.Builtin):
