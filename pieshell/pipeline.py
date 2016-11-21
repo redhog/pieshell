@@ -60,12 +60,13 @@ class RunningPipeline(object):
         self.pipeline = pipeline
     def __iter__(self):
         def handle_input():
-            for line in iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe):
+            for line in iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe, usage=self):
                 yield line
             self.wait()
         return iter(handle_input())
     def wait(self):
         while reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
+            print "Waiting for", iterio.get_io_manager()
             iterio.get_io_manager().handle_io()
         if self.failed_processes:
             raise PipelineFailed(self)
@@ -579,7 +580,7 @@ class Function(Pipeline):
                 thing = thing(redirects.stdin.source.iter, *self._arg, **self._kw)
             else:
                 thing = thing(
-                    iterio.LineInputHandler(redirects.stdin.open(False)),
+                    iterio.LineInputHandler(redirects.stdin.open(False), usage=self),
                     *self._arg, **self._kw)
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
@@ -596,7 +597,8 @@ class Function(Pipeline):
                 self,
                 iterio.LineOutputHandler(
                     redirects.stdout.open(False),
-                    (convert(x) for x in thing)))
+                    (convert(x) for x in thing),
+                    usage=self))
             self._running_processes = [self._running_process]
             self._redirects = self._running_process.redirects = redirects
 
