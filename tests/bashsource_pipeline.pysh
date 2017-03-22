@@ -1,4 +1,9 @@
-bashsource("bashsource_pipeline.sh").run_interactive()
-print env._exports["bash_functions"]
-print env._exports["yyy"]
+try:
+    bashsource("bashsource_pipeline.sh").run_interactive()
+except Exception, e:
+    import pdb, sys
+    sys.last_traceback = sys.exc_info()[2]
+    pdb.pm()
+print "functions", len(env._exports["bash_functions"])
+print "yyy", len(env._exports["yyy"])
 

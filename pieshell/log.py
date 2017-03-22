@@ -6,12 +6,13 @@ debug = {
     "error": True,
     "fd": False,
     "cmd": False,
-    "ioreg": False,
+    "ioreg": True,
     "ioevent": False,
     "io": False,
+    "handleio": True,
     "signalreg": False,
     "signal": False,
-    "test": False
+    "test": True
     }
 
 outfd = None

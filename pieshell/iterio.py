@@ -91,9 +91,19 @@ class IOHandler(object):
     def __init__(self, fd, borrowed = False, usage = None):
         self.fd = fd
         self.borrowed = borrowed
-        self.enabled = True
+        self.blocker = None
+        self.blocked = set()
         self.usage = usage
         get_io_manager().register(self)
+    def block(self, blocker):
+        self.blocker = blocker
+        self.blocker.blocked.add(self)
+        self.get_io_manager().disable(self)
+    def unblock(self):
+        for blocked in self.blocked:
+            self.blocked.remove(blocked)
+            blocked.blocker = None
+            self.get_io_manager().enable(blocked)
     def handle_event(self, event):
         pass
     def destroy(self):
@@ -103,22 +113,18 @@ class IOHandler(object):
         else:
             log.log("CLOSE DESTROY %s, %s" % (self.fd, self), "ioreg")
             os.close(self.fd)
-    def enable(self):
-        self.enabled = True
-        get_io_manager().enable(self)
-    def disable(self):
-        self.enabled = False
-        get_io_manager().enable(self)
-    def _repr_args(self):
+    def _repr_args(self, blocking_info = True, **kw):
         args = [str(self.fd)]
         if self.usage:
             args.append("for %s" % repr(self.usage))
-        if self.enabled:
-            args.append("enabled")
+        if self.blocker:
+            args.append("blocked by %s" % (self.blocker.__repr__(blocking_info = False),))
+        if self.blocked:
+            args.append("blocking %s" % (", ".join(blocked.__repr__(blocking_info = False) for blocked in self.blocked]),)
         return args
-    def __repr__(self):
+    def __repr__(self, **kw):
         t = type(self)
-        return "%s.%s(%s)" % (t.__module__, t.__name__, ",".join(self._repr_args()))
+        return "%s.%s(%s)" % (t.__module__, t.__name__, ",".join(self._repr_args(**kw)))
 
 class OutputHandler(IOHandler):
     events = select.POLLOUT
@@ -156,8 +162,8 @@ class OutputHandler(IOHandler):
             self.destroy()
             return True
 
-    def _repr_args(self):
-        args = IOHandler._repr_args(self)
+    def _repr_args(self, **kw):
+        args = IOHandler._repr_args(self, **kw)
         if not self.is_running:
             args.append("stopped")
         if self.recursion:
@@ -213,8 +219,8 @@ class InputHandler(IOHandler):
         finally:
             self.buffer = None
 
-    def _repr_args(self):
-        args = IOHandler._repr_args(self)
+    def _repr_args(self, **kw):
+        args = IOHandler._repr_args(self, **kw)
         if self.eof:
             args.append("EOF")
         if self.buffer:
@@ -314,8 +320,8 @@ class SignalManager(IOHandler):
                         res = res or sighandlerres
         return res
 
-    def _repr_args(self):
-        args = IOHandler._repr_args(self)
+    def _repr_args(self, **kw):
+        args = IOHandler._repr_args(self, **kw)
         args.append(repr(self.mask))
         args.append(repr(self.signal_handlers))
         return args
