@@ -4,7 +4,7 @@ def testfn(stdin):
     pieshell.log.log("TEST FN START", "test")
     yield "Start"
     for line in stdin:
-        if line is None:
+        if isinstance(line, pieshell.Block):
             yield; continue
         pieshell.log.log("TEST DATA %s" % line, "test")
         yield "Read >%s<" % line

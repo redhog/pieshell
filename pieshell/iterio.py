@@ -14,6 +14,11 @@ def events_to_str(events):
                      if (    name.startswith("POLL")
                          and events & getattr(select, name) != 0)])
 
+class Block(object):
+    def __init__(self, by_io_handler):
+        self.by_io_handler = by_io_handler
+    def __repr__(self):
+        return "BlockedBy(%s)" % (self.by_io_handler,)
 
 class IOManager(object):
     def __init__(self):
@@ -91,11 +96,12 @@ class IOHandler(object):
     def __init__(self, fd, borrowed = False, usage = None):
         self.fd = fd
         self.borrowed = borrowed
-        self.enabled = True
+        self.blocked_by = None
+        self.blocking = []
         self.usage = usage
         get_io_manager().register(self)
     def handle_event(self, event):
-        pass
+        self.unblock_others()
     def destroy(self):
         get_io_manager().deregister(self)
         if self.borrowed:
@@ -103,18 +109,28 @@ class IOHandler(object):
         else:
             log.log("CLOSE DESTROY %s, %s" % (self.fd, self), "ioreg")
             os.close(self.fd)
-    def enable(self):
-        self.enabled = True
+    def block(self, block):
+        self.blocked_by = block.by_io_handler
+        self.blocked_by.blocking.append(self)
+        get_io_manager().disable(self)
+    def unblock(self):
+        self.blocked_by = None
         get_io_manager().enable(self)
-    def disable(self):
-        self.enabled = False
-        get_io_manager().enable(self)
+    def unblock_others(self):
+        if not self.blocking:
+            return
+        for blocked in self.blocking:
+            blocked.unblock()
+        del self.blocking[:]
     def _repr_args(self):
         args = [str(self.fd)]
         if self.usage:
             args.append("for %s" % repr(self.usage))
-        if self.enabled:
-            args.append("enabled")
+        if self.blocked_by:
+            args.append("blocked(%s)" % (repr(self.blocked_by)))
+        if self.blocking:
+            args.append("blocking(%s)" % ','.join(repr(blocking)
+                                                  for blocking in self.blocking))
         return args
     def __repr__(self):
         t = type(self)
@@ -135,6 +151,7 @@ class OutputHandler(IOHandler):
         IOHandler.destroy(self)
 
     def handle_event(self, event):
+        IOHandler.handle_event(self, event)
         if self.recursion:
             raise RecursiveEvent
         self.recursion = True
@@ -146,7 +163,9 @@ class OutputHandler(IOHandler):
     def handle_event_non_recursive(self, event):
         try:
             val = self.iter.next()
-            if val is not None:
+            if isinstance(val, Block):
+                self.block(val)
+            else:
                 os.write(self.fd, val)
         except StopIteration:
             self.destroy()
@@ -169,7 +188,9 @@ class LineOutputHandler(OutputHandler):
     def handle_event_non_recursive(self, event):
         try:
             val = self.iter.next()
-            if val is not None:
+            if isinstance(val, Block):
+                self.block(val)
+            else:
                 os.write(self.fd, val + "\n")
             log.log("WRITE %s, %s" % (self.fd, repr(val)), "io")
         except StopIteration:
@@ -190,6 +211,7 @@ class InputHandler(IOHandler):
         IOHandler.__init__(self, fd, borrowed, usage)
 
     def handle_event(self, event):
+        IOHandler.handle_event(self, event)
         if self.buffer is None:
             self.buffer = os.read(self.fd, 1024)
             if not self.buffer:
@@ -207,7 +229,7 @@ class InputHandler(IOHandler):
             try:
                 get_io_manager().handle_io()
             except RecursiveEvent:
-                return None
+                return Block(self)
         try:
             return self.buffer
         finally:
@@ -227,6 +249,7 @@ class LineInputHandler(InputHandler):
         self.buffer = ""
 
     def handle_event(self, event):
+        IOHandler.handle_event(self, event)
         if '\n' not in self.buffer:
             read_data = os.read(self.fd, 1024)
             self.buffer += read_data
@@ -240,7 +263,7 @@ class LineInputHandler(InputHandler):
             try:
                 get_io_manager().handle_io()
             except RecursiveEvent:
-                return None
+                return Block(self)
         if not self.buffer:
             assert self.eof
             raise StopIteration
@@ -284,6 +307,7 @@ class SignalManager(IOHandler):
         return True
 
     def handle_event(self, event):
+        IOHandler.handle_event(self, event)
         res = False
         while True:
             try:
