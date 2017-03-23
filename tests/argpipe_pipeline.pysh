@@ -5,7 +5,7 @@ def testfn(stdin):
     yield "Start"
     for line in stdin:
         if isinstance(line, pieshell.Block):
-            yield; continue
+            yield line; continue
         pieshell.log.log("TEST DATA %s" % line, "test")
         yield "Read >%s<" % line
     yield "End"
