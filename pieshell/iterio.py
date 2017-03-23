@@ -6,6 +6,7 @@ import signalfd
 import signal
 import errno
 import log
+import traceback
 
 class RecursiveEvent(Exception): pass
 
@@ -144,6 +145,7 @@ class OutputHandler(IOHandler):
         self.is_running = True
         self.recursion = False
         self.exception = None
+        self.traceback = None
         IOHandler.__init__(self, fd, borrowed, usage)
 
     def destroy(self):
@@ -172,6 +174,7 @@ class OutputHandler(IOHandler):
             return True
         except Exception, e:
             self.exception = e
+            self.traceback = traceback.format_exc()
             self.destroy()
             return True
 
@@ -199,6 +202,7 @@ class LineOutputHandler(OutputHandler):
             return True
         except Exception, e:
             self.exception = e
+            self.traceback = traceback.format_exc()
             self.destroy()
             return True
 

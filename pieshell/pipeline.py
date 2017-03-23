@@ -113,13 +113,15 @@ class RunningFunction(RunningItem):
         return self.iohandler.exception is not None
     def __repr__(self, display_output=False):
         status = list(self.iohandler._repr_args())
+        traceback = ''
         if self.iohandler.exception is not None:
             status.append(str(self.iohandler.exception))
+            traceback = '\n' + self.iohandler.traceback
         if status:
             status = ' (' + ', '.join(status) + ')'
         else:
             status = ''
-        return '%s%s' % (self.cmd._function_name(), status)
+        return '%s%s%s' % (self.cmd._function_name(), status, traceback)
 
 class RunningProcess(RunningItem):
     class ProcessSignalHandler(iterio.ProcessSignalHandler):
