@@ -2,9 +2,9 @@ import pieshell
 import sys
 import os
 
-dir = os.path.dirname(__file__)
-sys.path[0:0] = [dir]
-pieshell.envScope["env"]._cd(dir)
+dirname = os.path.dirname(__file__)
+sys.path[0:0] = [dirname]
+pieshell.envScope["env"]._cd(dirname)
 
 
 class TestPipelines:
