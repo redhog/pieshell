@@ -43,13 +43,15 @@ class PipelineError(exceptions.BaseException):
     description = "Pipeline"
     def __init__(self, pipeline):
         self.pipeline = pipeline
-    def __str__(self):
+    def __repr__(self):
         return "%s: %s:\n\n%s" % (
             self.description,
             self.pipeline,
             "\n\n================================\n\n".join(
                 [proc.__repr__(display_output=True)
                  for proc in self.pipeline.failed_processes]))
+    def __str__(self):
+        return repr(self)
 
 class PipelineFailed(PipelineError, Exception): description = "Pipeline failed"
 class PipelineInterrupted(PipelineError, KeyboardInterrupt): description = "Pipeline canceled"
