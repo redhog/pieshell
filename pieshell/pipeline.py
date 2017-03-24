@@ -571,7 +571,7 @@ class Function(Pipeline):
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
         def convert(x):
-            if x is None:
+            if isinstance(x, iterio.Block):
                 return x
             elif isinstance(x, str):
                 return x

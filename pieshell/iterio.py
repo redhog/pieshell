@@ -104,6 +104,8 @@ class IOHandler(object):
     def handle_event(self, event):
         self.unblock_others()
     def destroy(self):
+        self.unblock_others()
+        self.unblock()
         get_io_manager().deregister(self)
         if self.borrowed:
             log.log("HAND BACK %s, %s" % (self.fd, self), "ioreg")
@@ -115,6 +117,8 @@ class IOHandler(object):
         self.blocked_by.blocking.append(self)
         get_io_manager().disable(self)
     def unblock(self):
+        if not self.blocked_by:
+            return
         self.blocked_by = None
         get_io_manager().enable(self)
     def unblock_others(self):
@@ -123,19 +127,20 @@ class IOHandler(object):
         for blocked in self.blocking:
             blocked.unblock()
         del self.blocking[:]
-    def _repr_args(self):
+    def _repr_args(self, blocking_info=True, **kw):
         args = [str(self.fd)]
         if self.usage:
             args.append("for %s" % repr(self.usage))
-        if self.blocked_by:
-            args.append("blocked(%s)" % (repr(self.blocked_by)))
-        if self.blocking:
-            args.append("blocking(%s)" % ','.join(repr(blocking)
-                                                  for blocking in self.blocking))
+        if blocking_info:
+            if self.blocked_by:
+                args.append("blocked(%s)" % (self.blocked_by.__repr__(blocking_info=False)),)
+            if self.blocking:
+                args.append("blocking(%s)" % ','.join(blocking.__repr__(blocking_info=False)
+                                                      for blocking in self.blocking))
         return args
-    def __repr__(self):
+    def __repr__(self, **kw):
         t = type(self)
-        return "%s.%s(%s)" % (t.__module__, t.__name__, ",".join(self._repr_args()))
+        return "%s.%s(%s)" % (t.__module__, t.__name__, ",".join(self._repr_args(**kw)))
 
 class OutputHandler(IOHandler):
     events = select.POLLOUT
@@ -178,8 +183,8 @@ class OutputHandler(IOHandler):
             self.destroy()
             return True
 
-    def _repr_args(self):
-        args = IOHandler._repr_args(self)
+    def _repr_args(self, **kw):
+        args = IOHandler._repr_args(self, **kw)
         if not self.is_running:
             args.append("stopped")
         if self.recursion:
@@ -195,7 +200,7 @@ class LineOutputHandler(OutputHandler):
                 self.block(val)
             else:
                 os.write(self.fd, val + "\n")
-            log.log("WRITE %s, %s" % (self.fd, repr(val)), "io")
+            log.log("WRITE %s, %s" % (self, repr(val)), "io")
         except StopIteration:
             log.log("STOP ITERATION %s" % self.fd, "ioevent")
             self.destroy()
@@ -239,8 +244,8 @@ class InputHandler(IOHandler):
         finally:
             self.buffer = None
 
-    def _repr_args(self):
-        args = IOHandler._repr_args(self)
+    def _repr_args(self, **kw):
+        args = IOHandler._repr_args(self, **kw)
         if self.eof:
             args.append("EOF")
         if self.buffer:
@@ -342,8 +347,8 @@ class SignalManager(IOHandler):
                         res = res or sighandlerres
         return res
 
-    def _repr_args(self):
-        args = IOHandler._repr_args(self)
+    def _repr_args(self, **kw):
+        args = IOHandler._repr_args(self, **kw)
         args.append(repr(self.mask))
         args.append(repr(self.signal_handlers))
         return args
