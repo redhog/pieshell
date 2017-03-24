@@ -6,6 +6,7 @@ debug = {
     "error": True,
     "fd": False,
     "cmd": False,
+    "pipeline-io": False,
     "ioreg": False,
     "ioevent": False,
     "io": False,
