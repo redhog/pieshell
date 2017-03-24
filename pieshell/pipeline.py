@@ -434,7 +434,11 @@ class Command(BaseCommand):
     def _child(self, redirects, args):
         redirects.perform()
         os.chdir(self._env._cwd)
-        os.execvpe(args[0], args, self._env._exports)
+        try:
+            os.execvpe(args[0], args, self._env._exports)
+        except OSError, e:
+            e.filename = args[0]
+            raise e
         os._exit(-1)
 
     def _handle_arg_pipes(self, thing, orig_redirects, redirects, sess, indentation):
