@@ -66,7 +66,7 @@ class RunningPipeline(object):
         return iter(handle_input())
     def wait(self):
         while reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
-            print "Waiting for", iterio.get_io_manager()
+            log.log("Waiting for %s" % (iterio.get_io_manager(),), 'pipeline-io')
             iterio.get_io_manager().handle_io()
         if self.failed_processes:
             raise PipelineFailed(self)
