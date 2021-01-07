@@ -220,4 +220,4 @@ class Command(command.BaseCommand):
 
     @property
     def __doc__(self):
-        return "\n".join(self("--help"))
+        return b"\n".join(self("--help")).decode("utf-8")

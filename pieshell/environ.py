@@ -159,7 +159,7 @@ class EnvScope(dict):
             if name in env._exports:
                 return env._exports[name]
             if name in __builtins__:
-                raise
+                raise KeyError(name)
         return getattr(env, name)
 
     def keys(self):

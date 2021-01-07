@@ -16,12 +16,12 @@ class CdBuiltin(builtin.Builtin):
         return pth
 
     def _run(self, redirects, sess, indentation = ""):
-        self.env._cd(self._path)
+        self._env._cd(self._path)
         return []
 
     def __dir__(self):
         if self._arg[1:]:
-            pth = self.env._expand_path(self._path)
+            pth = self._env._expand_path(self._path)
         else:
             pth = "."
         try:
