@@ -199,7 +199,7 @@ class InputHandler(IOHandler):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         while self.buffer is None:
             if self.eof:
                 raise StopIteration
@@ -223,10 +223,10 @@ class InputHandler(IOHandler):
 class LineInputHandler(InputHandler):
     def __init__(self, fd, borrowed = False):
         InputHandler.__init__(self, fd, borrowed)
-        self.buffer = ""
+        self.buffer = b""
 
     def handle_event(self, event):
-        if '\n' not in self.buffer:
+        if b'\n' not in self.buffer:
             read_data = os.read(self.fd, 1024)
             self.buffer += read_data
             if not read_data:
@@ -234,8 +234,8 @@ class LineInputHandler(InputHandler):
                 self.destroy()
         return True
 
-    def next(self):
-        while not self.eof and '\n' not in self.buffer:
+    def __next__(self):
+        while not self.eof and b'\n' not in self.buffer:
             try:
                 get_io_manager().handle_io()
             except RecursiveEvent:
@@ -243,9 +243,9 @@ class LineInputHandler(InputHandler):
         if not self.buffer:
             assert self.eof
             raise StopIteration
-        if '\n' not in self.buffer:
-            self.buffer += '\n' # No newline at end of file...
-        ret, self.buffer = self.buffer.split("\n", 1)
+        if b'\n' not in self.buffer:
+            self.buffer += b'\n' # No newline at end of file...
+        ret, self.buffer = self.buffer.split(b"\n", 1)
         return ret
 
 ALL_SIGNALS = set(getattr(signal, name) for name in dir(signal) if name.startswith("SIG") and '_' not in name)
@@ -276,7 +276,7 @@ class SignalManager(IOHandler):
         log.log("DEREGISTER %s, %s" % (key, signal_handler), "signalreg")
 
     def match_signal(self, siginfo, flt):
-        for key, value in flt.iteritems():
+        for key, value in flt.items():
             if siginfo[key] != value:
                 return False
         return True
@@ -303,10 +303,10 @@ class SignalManager(IOHandler):
             for siginfo in siginfos:
                 if log.debug["signal"]:
                     log.log("Signal", "signal")
-                    for key, val in siginfo_to_names(siginfo).iteritems():
+                    for key, val in siginfo_to_names(siginfo).items():
                         log.log("    %s: %s" % (key, val), "signal")
 
-                for key, signal_handler in self.signal_handlers.items():
+                for key, signal_handler in list(self.signal_handlers.items()):
                     if self.match_signal(siginfo, signal_handler.filter):
                         sighandlerres = signal_handler.handle_event(siginfo)
                         res = res or sighandlerres
@@ -413,7 +413,7 @@ class SignalIteratorHandler(SignalHandler):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         while not self.buffer:
             get_io_manager().handle_io()
         return self.buffer.pop()

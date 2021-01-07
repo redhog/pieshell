@@ -295,7 +295,9 @@ class BaseCommand(Pipeline):
 
     def _arg_list(self, redirects = None, sess = None, indentation = ""):
         def handle_arg_pipes(item):
-            if redirects is not None:
+            if isinstance(item, str):
+                return item
+            elif redirects is not None:
                 return self._handle_arg_pipes(item, redirects, sess, indentation)
             else:
                 return "/dev/fd/X"
@@ -303,7 +305,7 @@ class BaseCommand(Pipeline):
         if self._arg:
             for arg in self._arg:
                 if isinstance(arg, dict):
-                    for name, value in arg.iteritems():
+                    for name, value in arg.items():
                         for match in self._env._expand_argument(handle_arg_pipes(value)):
                             args.append("--%s=%s" % (name, match))
                 else:
@@ -354,12 +356,14 @@ class Command(BaseCommand):
         os._exit(-1)
 
     def _handle_arg_pipes(self, thing, redirects, sess, indentation):
-        if isinstance(thing, Pipeline):
+        if isinstance(thing, str):
+            return thing
+        elif isinstance(thing, Pipeline):
             direction = "stdout"
         elif isinstance(thing, (types.FunctionType, types.MethodType)):
             thing = Function(self._env, thing)
             direction = "stdin"
-        elif hasattr(thing, "__iter__") or hasattr(thing, "next"):
+        elif hasattr(thing, "__iter__") or hasattr(thing, "__next__"):
             thing = Function(self._env, thing)
             direction = "stdout"
         else:
