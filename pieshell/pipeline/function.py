@@ -44,9 +44,9 @@ class Function(base.Pipeline):
                 mod = mod + '.'
             
             if isinstance(thing, types.MethodType):
-                func = "%s.%s" % (thing.im_class.__name__, thing.im_func.func_name)
+                func = "%s.%s" % (type(thing.__self__).__name__, thing.__name__)
             else:
-                func = thing.func_name
+                func = thing.__name__
 
             return u"%s%s" % (mod, func)
         else:

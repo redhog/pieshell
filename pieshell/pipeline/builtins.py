@@ -43,15 +43,19 @@ class BashSource(builtin.Builtin):
     def _run(self, redirects, sess, indentation = ""):
         self._cmd = self._env.bash(
             "-l", "-i", "-c",
-            "source '%s'; declare -x > $0" % self._arg[1],
+            "source '%s'; declare -x > $0" % (self._env._expand_argument(self._arg[1])[0],),
             self.parse_decls)
-        return self._cmd._run(redirects, sess, indentation)
-
+        res = self._cmd._run(redirects, sess, indentation)
+        self._pid = self._cmd._pid
+        self._redirects = self._cmd._redirects
+        return res
+    
     def parse_decls(self, stdin):
         # Parse and load environment variables from bash
         for decl in stdin:
             if decl is None:
                 yield; continue
+            decl = decl.decode("utf-8")
             if "=" not in decl: continue
             name, value = decl[len("declare -x "):].split("=", 1)    
             self._env._exports[name] = value.strip("\"")

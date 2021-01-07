@@ -23,12 +23,20 @@ from . import base
 from . import command
 
 class BaseCommand(base.Pipeline):
-    """Runs an external program with the specified arguments.
-    Arguments are sent in as a list of strings and dictionaries.
+    """This class is an abstract base class for all commands. It can
+    however be instantiated, and will then return an instance of
+    either Command or one of the Builtin classes.
+
+    Command arguments are sent in as a list of strings and dictionaries.
     Elements of dictionary arguments are converted into --key=value
     pairs. Note that this short hand syntax might not work for all
     programs, as some expect "--key value", or even "-key=value" (e.g.
-    find). """
+    find).
+
+    You can work around this limitation by registering Command
+    subclasses that specialcases this handling with the
+    BuiltinRegistry.
+    """
     def __new__(cls, env, arg = None):
         from . import builtin
         if cls is BaseCommand:
