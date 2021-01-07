@@ -13,6 +13,8 @@ class R(object):
         self.str = str
     def __getattr__(self, name):
         return getattr(self.str, name)
+    def __iter__(self):
+        return iter(self.str)
     def __repr__(self):
         return "R(%s)" % (repr(self.str),)
 

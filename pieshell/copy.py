@@ -24,7 +24,7 @@ def deepcopy(obj):
             if isinstance(obj, (list, tuple)):
                 memo[key] = type(obj)(deepcopy(item) for item in obj)
             elif isinstance(obj, dict):
-                memo[key] = type(obj)({deepcopy(key):deepcopy(value) for key, value in obj.iteritems()})
+                memo[key] = type(obj)({deepcopy(key):deepcopy(value) for key, value in obj.items()})
             elif isinstance(obj, bytes):
                 memo[key] = bytes(obj)
             elif isinstance(obj, str):
