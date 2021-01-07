@@ -143,15 +143,16 @@ class Command(command.BaseCommand):
         os._exit(-1)
 
     def _handle_arg_pipes(self, thing, redirects, sess, indentation):
+        from . import function
         if isinstance(thing, str):
             return thing
         elif isinstance(thing, base.Pipeline):
             direction = "stdout"
         elif isinstance(thing, (types.FunctionType, types.MethodType)):
-            thing = Function(self._env, thing)
+            thing = function.Function(self._env, thing)
             direction = "stdin"
         elif hasattr(thing, "__iter__") or hasattr(thing, "__next__"):
-            thing = Function(self._env, thing)
+            thing = function.Function(self._env, thing)
             direction = "stdout"
         else:
             # Not a named pipe item, just a string

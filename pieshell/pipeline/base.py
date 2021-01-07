@@ -52,6 +52,7 @@ class Pipeline(DescribableObject):
     def __deepcopy__(self, memo = {}):
         return type(self)(self._env)
     def _coerce(self, thing, direction):
+        from . import function
         if thing is None:
             thing = "/dev/null"
         if isinstance(thing, (str, bytes)):
@@ -59,7 +60,7 @@ class Pipeline(DescribableObject):
         if isinstance(thing, redir.Redirect):
             thing = redir.Redirects(thing, defaults=False)
         if not isinstance(thing, Pipeline) and (isinstance(thing, types.FunctionType) or hasattr(thing, "__iter__") or hasattr(thing, "next")):
-            thing = Function(self._env, thing)
+            thing = function.Function(self._env, thing)
         if not isinstance(thing, (Pipeline, redir.Redirects)):
             raise ValueError(type(thing))
         return thing
