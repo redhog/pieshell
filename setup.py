@@ -1,12 +1,17 @@
 #! /usr/bin/python
 
 from setuptools import setup, find_packages
+import os.path
 
+
+with open(os.path.join(os.path.dirname(__file__), "README.md"), "r") as rf:
+    with open(os.path.join(os.path.dirname(__file__), "pieshell", "README.md"), "w") as wf:
+        wf.write(rf.read())
 
 setup(
     name = "pieshell",
     description = """Pieshell is a Python shell environment that combines the
-expressiveness of shell pipelines with the prower of python iterators.
+expressiveness of shell pipelines with the power of python iterators.
 
 It can be used in two major ways:
 
@@ -21,6 +26,7 @@ It can be used in two major ways:
     license = "GPL",
     url = "https://github.com/redhog/pieshell",
     packages = find_packages(),
+    package_data={'pieshell': ['*.md']},
     entry_points={
         'console_scripts': [
             'pieshell = pieshell.shell:main',
