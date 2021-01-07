@@ -16,3 +16,7 @@ from .redirect import *
 #             item.run(stdin=stdin, stdout=stdout, stderr=stderr, **kw).join()
 #     def _repr(self):
 #         return u"%s + %s" % (repr(self.first), repr(self.second))
+
+banner = """PieShell 0.0.6 <)
+Python %s
+Type help(pieshell) for more information.""" % (sys.version.replace("\n", " "),)

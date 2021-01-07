@@ -14,7 +14,8 @@ It can be used in two major ways:
   * [Executing basic commands](#executing-basic-commands)
   * [Full syntsax for command lines](#full-syntsax-for-command-lines)
   * [Redirects](#redirects)
-  * [Interfacing between python functions and shell commands](#interfacing-between-python-functions-and-shell-commands)
+  * [Interfacing between python functions and shell
+    commands](#interfacing-between-python-functions-and-shell-commands)
   * [Environment variables](#environment-variables)
   * [Argument expansion](#argument-expansion)
 * [As a python module](#as-a-python-module)
@@ -37,16 +38,19 @@ The interactive pieshell environment supports all normal python syntax.
     140:/home/redhog/Projects/beta/pieshell >>> print 3+4
     7
 
-In addition, you can run programs just like in any shell by writing their names
+In addition, you can run programs just like in any shell by writing
+their names
 
     140:/home/redhog/Projects/beta/pieshell >>> ls
-    build  deps  dist  LICENSE.txt	pieshell  pieshell.egg-info  README.md	setup.py
+    build deps dist LICENSE.txt pieshell pieshell.egg-info README.md
+    setup.py
 
 Parameters to programs however have to be given as proper python strings
 within parenthesis, like a python function call
 
     140:/home/redhog/Projects/beta/pieshell >>> ls("-a")
-    .  ..  build  deps  dist  .git	.gitignore  LICENSE.txt  pieshell  pieshell.egg-info  .#README.md  README.md  setup.py
+    . .. build deps dist .git .gitignore LICENSE.txt pieshell
+    pieshell.egg-info .#README.md README.md setup.py
 
 Piping the standard output of one command to the standard input of
 another works just like in bash
@@ -61,13 +65,18 @@ Changing directory is done using the command cd:
 
 ## Full syntsax for command lines
 
-To execute commands that require a path, for example ones in the current directory, or commands with a dot in their names
+To execute commands that require a path, for example ones in the
+current directory, or commands with a dot in their names
 
     140:/home/redhog/Projects/beta/pieshell >>> _("./setup.py", "--help")
     Common commands: (see '--help-commands' for more)
     ...
 
-The underscore represents the virtual root command that has no parameters, not even a command name. In general, there are two equivalent syntaxes for parameters: as function parameter strings, and as attribute names. The two syntaxes can be mixed freely. All of the following are equivalent:
+The underscore represents the virtual root command that has no
+parameters, not even a command name. In general, there are two
+equivalent syntaxes for parameters: as function parameter strings, and
+as attribute names. The two syntaxes can be mixed freely. All of the
+following are equivalent:
 
     _("foo", "bar", "fie")
     _.foo("bar", "fie")
@@ -79,7 +88,10 @@ Example usage:
 
     git.diff("-U")
 
-In addition to these two generic syntaxes, the function call syntax also supports named parameters, which are converted into "--name=value" pairs. Note that the order can not be guaranteed as named parameters are sent around as dictionaries inside python:
+In addition to these two generic syntaxes, the function call syntax
+also supports named parameters, which are converted into
+"--name=value" pairs. Note that the order can not be guaranteed as
+named parameters are sent around as dictionaries inside python:
 
     git.diff(unified=4)
 
@@ -108,7 +120,8 @@ is a short hand for "/dev/null"
 Redirects can also be made with a more explicit syntax that allows
 redirecting other file descriptors than stdin and stdout:
 
-    139:/home/redhog/Projects/beta/pieshell >>> cat | Redirect("stdin", "foo") | Redirect("stdout", "bar")
+    139:/home/redhog/Projects/beta/pieshell >>> cat |
+      Redirect("stdin", "foo") | Redirect("stdout", "bar")
 
 The constructor for redirect takes the following arguments:
 
@@ -128,7 +141,9 @@ iterators. Iterating over a shell command iterates over the lines of
 its standard out
 
     140:/home/redhog/Projects/beta/pieshell >>> list(ls("-a"))
-    ['.', '..', 'build', 'deps', 'dist', '.git', '.gitignore', 'LICENSE.txt', 'pieshell', 'pieshell.egg-info', '.#README.md', 'README.md', 'setup.py']
+    ['.', '..', 'build', 'deps', 'dist', '.git', '.gitignore',
+     'LICENSE.txt', 'pieshell', 'pieshell.egg-info', '.#README.md',
+     'README.md', 'setup.py']
     140:/home/redhog/Projects/beta/pieshell >>> for x in ls("-a"):
     ...   if x.endswith('.py'):
     ...      print x
@@ -138,7 +153,8 @@ its standard out
 Piping an iterator into a shell command, sends its items as lines to
 the standard in of the shell command
 
-    140:/home/redhog/Projects/beta/pieshell >>> list(["foo", "bar.py", "fie.py"] | grep("-e", ".py"))
+    140:/home/redhog/Projects/beta/pieshell >>> list(["foo", "bar.py", "fie.py"] |
+      grep("-e", ".py"))
     ['bar.py', 'fie.py']
     140:/home/redhog/Projects/beta/pieshell >>> def foo():
     ...     yield "hello"

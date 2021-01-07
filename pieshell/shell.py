@@ -111,7 +111,8 @@ pieshell --log=NAME,NAME,NAME
 
                     ptpython.repl.embed(locals=environ.envScope, vi_mode=False)
                 else:
-                    code.InteractiveConsole(locals=environ.envScope).interact()
+                    import pieshell
+                    code.InteractiveConsole(locals=environ.envScope).interact(banner=pieshell.banner)
 
 if __name__ == '__main__':
     main()
