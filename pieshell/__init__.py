@@ -5,7 +5,13 @@ from .redir import *
 from .pipeline import *
 from .environ import *
 from .shell import *
+from .version import *
+
+name = "PieShell %s <)" % (version,)
 
 with pkg_resources.resource_stream("pieshell", "README.md") as f:
-    __doc__ = f.read().decode("utf-8")
-    
+    __doc__ = "%s\n\n%s" % (name, f.read().decode("utf-8"))
+
+banner = """%s
+Python %s
+Type help(pieshell) for more information.""" % (name, sys.version.replace("\n", " "),)

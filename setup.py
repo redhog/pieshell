@@ -3,11 +3,15 @@
 from setuptools import setup, find_packages
 import os.path
 
+VERSION = "0.0.7"
 
 with open(os.path.join(os.path.dirname(__file__), "README.md"), "r") as rf:
     with open(os.path.join(os.path.dirname(__file__), "pieshell", "README.md"), "w") as wf:
         wf.write(rf.read())
 
+with open(os.path.join(os.path.dirname(__file__), "pieshell", "version.py"), "w") as wf:
+    wf.write("version = '%s'\n" % (VERSION,)) 
+    
 setup(
     name = "pieshell",
     description = """Pieshell is a Python shell environment that combines the
@@ -20,7 +24,7 @@ It can be used in two major ways:
 """,
     keywords = "Python shell pipelines suprocess",
     install_requires = ["signalfd"],
-    version = "0.0.6",
+    version = VERSION,
     author = "Egil Moeller",
     author_email = "egil.moller@piratpartiet.se",
     license = "GPL",
