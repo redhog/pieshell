@@ -30,7 +30,7 @@ class Redirect(object):
         1: os.O_WRONLY | os.O_CREAT,
         2: os.O_WRONLY | os.O_CREAT
         }
-    def __init__(self, fd, source = None, flag = None, mode = 0777, pipe=None, borrowed=False):
+    def __init__(self, fd, source = None, flag = None, mode = 0o777, pipe=None, borrowed=False):
         if isinstance(fd, Redirect):
             fd, source, flag, mode, pipe = fd.fd, fd.source, fd.flag, fd.mode, fd.pipe
         if not isinstance(fd, int):
@@ -85,7 +85,7 @@ class Redirect(object):
         flagmode = []
         if self.flag != self.fd_flags.get(self.fd, None):
             flagmode.append(flags_to_string(self.flag))
-        if self.mode != 0777:
+        if self.mode != 0o777:
             flagmode.append("m=%s" % self.mode)
         if flagmode:
             flagmode = "[" + ",".join(flagmode) + "]"
@@ -126,23 +126,23 @@ class Redirects(object):
         return self
     def merge(self, other):
         self = Redirects(self)
-        for redirect in other.redirects.itervalues():
+        for redirect in other.redirects.values():
             self.register(redirect)
         return self
     def find_free_fd(self):
         return max([redirect.fd
-                    for redirect in self.redirects.itervalues()]
+                    for redirect in self.redirects.values()]
                    + [redirect.source
-                      for redirect in self.redirects.itervalues()
+                      for redirect in self.redirects.values()
                       if isinstance(redirect.source, int)]
                    + [2]) + 1
     def make_pipes(self):
         return type(self)(*[redirect.make_pipe()
-                            for redirect in self.redirects.itervalues()])
+                            for redirect in self.redirects.values()])
     def move_existing_fds(self):
         new_fd = self.find_free_fd()
         redirects = []
-        for redirect in self.redirects.itervalues():
+        for redirect in self.redirects.values():
             redirects.append(redirect.move(new_fd))
             new_fd += 1
         log.log("After move: %s" % repr(Redirects(*redirects, defaults=False)), "fd")
@@ -152,7 +152,7 @@ class Redirects(object):
             for redirect in self.move_existing_fds():
                 redirect.perform()
             self.close_other_fds()
-        except Exception, e:
+        except Exception as e:
             import traceback
             log.log(e, "fd")
             log.log(traceback.format_exc(), "fd")
@@ -166,11 +166,10 @@ class Redirects(object):
             except:
                 pass
     def close_source_fds(self):
-        for redirect in self.redirects.itervalues():
+        for redirect in self.redirects.values():
             redirect.close_source_fd()
     def __getattr__(self, name):
         return self.redirects[Redirect.fd_names[name]]
     def __repr__(self):
-        redirects = self.redirects.values()
-        redirects.sort(lambda a, b: cmp(a.fd, b.fd))
+        redirects = sorted(self.redirects.values(), key = lambda a: a.fd)
         return ", ".join(repr(redirect) for redirect in redirects)

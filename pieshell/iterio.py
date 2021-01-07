@@ -5,7 +5,7 @@ import threading
 import signalfd
 import signal
 import errno
-import log
+from . import log
 
 class RecursiveEvent(Exception): pass
 
@@ -152,7 +152,7 @@ class OutputHandler(IOHandler):
 
     def handle_event_non_recursive(self, event):
         try:
-            val = self.iter.next()
+            val = next(self.iter)
             if val is not None:
                 os.write(self.fd, val)
         except StopIteration:
@@ -171,9 +171,9 @@ class OutputHandler(IOHandler):
 class LineOutputHandler(OutputHandler):
     def handle_event_non_recursive(self, event):
         try:
-            val = self.iter.next()
+            val = next(self.iter)
             if val is not None:
-                os.write(self.fd, val + "\n")
+                os.write(self.fd, val + b"\n")
             log.log("WRITE %s, %s" % (self.fd, repr(val)), "io")
         except StopIteration:
             log.log("STOP ITERATION %s" % self.fd, "ioevent")
@@ -260,8 +260,7 @@ class SignalManager(IOHandler):
         signalfd.sigprocmask(signalfd.SIG_BLOCK, mask)
 
     def filter_to_key(self, flt):
-        key = flt.items()
-        key.sort(lambda item: item[0])
+        key = sorted(flt.items(), key=lambda item: item[0])
         return tuple(key)
 
     def register(self, signal_handler):
@@ -287,7 +286,7 @@ class SignalManager(IOHandler):
         while True:
             try:
                 siginfo = signalfd.read_siginfo(self.fd)
-            except (OSError, IOError), e:
+            except (OSError, IOError) as e:
                 if e.errno == errno.EAGAIN:
                     break
                 raise

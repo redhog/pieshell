@@ -14,39 +14,39 @@ def main():
     def test():
         try:
             e = env
-            print "===={test one}===="
+            print("===={test one}====")
             for x in e.ls | e.grep(".py$") | e.sed("s+shell+nanan+g"):
-                print x
+                print(x)
 
-            print "===={test two}===="
+            print("===={test two}====")
             def somefn():
                 yield "foo bar fien\n"
                 yield "foo naja hehe\n"
                 yield "bar naja fie\n"
 
             for x in somefn() | e.grep("foo"):
-                print x
+                print(x)
 
 
-            print "===={test three}===="
+            print("===={test three}====")
             data = [
                 "foo bar fien\n",
                 "foo naja hehe\n",
                 "bar naja fie\n"
                 ]
 
-            print list(data | e.grep("foo"))
+            print(list(data | e.grep("foo")))
 
-            # print "===={test four}===="
+            # print("===={test four}====")
 
             # for x in ((e.echo("hejjo") | e.sed("s+o+FLUFF+g"))
             #            + e.echo("hopp")
             #          ) | e.sed("s+h+nan+g"):
-            #     print x
+            #     print(x)
 
-            print "===={test five}===="
+            print("===={test five}====")
 
-            print list(env.cat(iter(["foo", "bar", "fie"])) | env.cat())
+            print(list(env.cat(iter(["foo", "bar", "fie"])) | env.cat()))
 
         except:
             import sys, pdb
@@ -68,7 +68,7 @@ def main():
             args.append(arg)
 
     if kws.get("help", False):
-        print """Usages:
+        print("""Usages:
 
 pieshell
 pieshell FILE.pysh
@@ -80,7 +80,7 @@ pieshell --ptpython
 pieshell --log=NAME,NAME,NAME
 
 
-"""
+""")
     elif kws.get("test", False):
         test()
     else:

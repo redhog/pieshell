@@ -13,7 +13,8 @@ import signal
 import signalfd
 import operator
 import re
-import __builtin__        
+import builtins        
+import functools
 
 from . import copy
 from . import iterio
@@ -22,7 +23,7 @@ from . import log
 
 
 repr_state = threading.local()
-standard_repr = __builtin__.repr
+standard_repr = builtins.repr
 def pipeline_repr(obj):
     """Returns a string representation of an object, including pieshell
     pipelines."""
@@ -34,7 +35,7 @@ def pipeline_repr(obj):
         return standard_repr(obj)
     finally:
         repr_state.in_repr -= 1
-__builtin__.repr = pipeline_repr
+builtins.repr = pipeline_repr
 
 
 class RunningPipeline(object):
@@ -44,7 +45,7 @@ class RunningPipeline(object):
     def __iter__(self):
         return iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe)
     def wait(self):
-        while reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
+        while functools.reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
             iterio.get_io_manager().handle_io()
 
     def __repr__(self):
@@ -103,7 +104,7 @@ class Pipeline(DescribableObject):
     def _coerce(self, thing, direction):
         if thing is None:
             thing = "/dev/null"
-        if isinstance(thing, (str, unicode)):
+        if isinstance(thing, (str, bytes)):
             thing = redir.Redirect(direction, thing)
         if isinstance(thing, redir.Redirect):
             thing = redir.Redirects(thing, defaults=False)
@@ -157,7 +158,7 @@ class Pipeline(DescribableObject):
         try:
             pipeline = self.run()
             pipeline.wait()
-        except (Exception, KeyboardInterrupt), e:
+        except (Exception, KeyboardInterrupt) as e:
             procs = ""
             if pipeline is not None:
                 procs = " in %s" % repr(pipeline.processes)
@@ -170,10 +171,10 @@ class Pipeline(DescribableObject):
     def __iter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
         return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
-    def __unicode__(self):
-        # FIXME: Should use locale, but python's locale module is broken and ignores LC_* by default
-        return str(self).decode("utf-8")
     def __str__(self):
+        # FIXME: Should use locale, but python's locale module is broken and ignores LC_* by default
+        return bytes(self).decode("utf-8")
+    def __bytes__(self):
         """Runs the pipeline and returns its standrad out output as a string"""
         return "\n".join(iter(self.run([redir.Redirect("stdout", redir.PIPE)])))
     def __invert__(self):
@@ -272,10 +273,10 @@ class BaseCommand(Pipeline):
     def _repr(self):
         args = self._arg or []
 
-        for prefix_idx in xrange(0, len(args) + 1):
+        for prefix_idx in range(0, len(args) + 1):
             if prefix_idx == len(args):
                 break
-            if not isinstance(args[prefix_idx], (str, unicode)) or not re.match(r"^[a-zA-Z]*$", args[prefix_idx]):
+            if not isinstance(args[prefix_idx], (bytes, str)) or not re.match(r"^[a-zA-Z]*$", args[prefix_idx]):
                 break
 
         if prefix_idx:
@@ -413,7 +414,7 @@ class Command(BaseCommand):
     def __dir__(self):
         try:
             return list(self._complete())
-        except Exception, e:
+        except Exception as e:
             traceback.print_exc()
             return ["<%s>" % e]
 
@@ -471,12 +472,12 @@ class Function(Pipeline):
         def convert(x):
             if x is None:
                 return x
-            elif isinstance(x, str):
+            elif isinstance(x, bytes):
                 return x
-            elif isinstance(x, unicode):
+            elif isinstance(x, str):
                 return x.encode("utf-8")
             else:
-                return unicode(x).encode("utf-8")
+                return str(x).encode("utf-8")
 
         thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, (types.FunctionType, types.MethodType)):
