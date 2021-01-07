@@ -110,9 +110,9 @@ class Environment(object):
         """Creates a pipeline of one command in the current
         environment."""
         if name == "_":
-            return pipeline.BaseCommand(self)
+            return pipeline.command.BaseCommand(self)
         else:
-            return pipeline.BaseCommand(self, [name])
+            return pipeline.command.BaseCommand(self, [name])
     def __repr__(self):
         """Prints the current prompt"""
         if self._interactive:

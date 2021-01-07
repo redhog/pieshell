@@ -1,9 +1,9 @@
 import os
 import os.path
 
-from . import pipeline
+from . import builtin
 
-class CdBuiltin(pipeline.Builtin):
+class CdBuiltin(builtin.Builtin):
     """Change directory to the supplied path.
     """
     name = "cd"
@@ -30,10 +30,10 @@ class CdBuiltin(pipeline.Builtin):
         except:
             return []
 
-pipeline.BuiltinRegistry.register(CdBuiltin)
+builtin.BuiltinRegistry.register(CdBuiltin)
 
 
-class BashSource(pipeline.Builtin):
+class BashSource(builtin.Builtin):
     """Runs a bash script and imports all environment variables at the
     end of the script.
     """
@@ -57,4 +57,4 @@ class BashSource(pipeline.Builtin):
             self._env._exports[name] = value.strip("\"")
         yield
 
-pipeline.BuiltinRegistry.register(BashSource)
+builtin.BuiltinRegistry.register(BashSource)
