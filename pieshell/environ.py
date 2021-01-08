@@ -41,6 +41,7 @@ class Environment(object):
             self._cd(cwd)
         self._exports = exports
         self._interactive = interactive
+        self._bashfunctions = {}
         self._scope = None
     @property
     def _exports(self):

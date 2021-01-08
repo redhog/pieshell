@@ -1,5 +1,7 @@
 import os
 import os.path
+import shlex
+import io
 
 from . import builtin
 
@@ -33,6 +35,48 @@ class CdBuiltin(builtin.Builtin):
 builtin.BuiltinRegistry.register(CdBuiltin)
 
 
+def parse_declares(data):
+    l = shlex.shlex(io.StringIO(data), posix=True)
+
+    l.whitespace_split = True
+
+    lastlineno = 1
+    line = []
+    lines = []
+    while True:
+        if l.lineno != lastlineno:
+            lines.append((lastlineno, line))
+            line = []
+        lastlineno = l.lineno
+        token = l.get_token()
+        if token is None:
+            break
+        line.append(token)
+
+    vars = {}
+    funcstarts = []
+    for (lineno, line) in lines:
+        if line[0] == "declare":
+            name = line[2]
+            if "=" in name:
+                name, value = name.split("=", 1)
+            else:
+                value = ""
+            vars[name] = value
+        elif len(line) == 3 and line[1] == '()' and line[2] == '{':
+            funcstarts.append((lineno, line[0]))
+
+    lines = data.split("\n")
+    funcs = {}
+    for i in range(len(funcstarts)):
+        if i >= len(funcstarts) - 1:
+            flines = lines[funcstarts[i][0]-1:]
+        else:
+            flines = lines[funcstarts[i][0]-1:funcstarts[i+1][0]-1]
+        funcs[funcstarts[i][1]] = "\n".join(flines)
+
+    return vars, funcs
+
 class BashSource(builtin.Builtin):
     """Runs a bash script and imports all environment variables at the
     end of the script.
@@ -43,7 +87,7 @@ class BashSource(builtin.Builtin):
     def _run(self, redirects, sess, indentation = ""):
         self._cmd = self._env.bash(
             "-l", "-i", "-c",
-            "source '%s'; declare -x > $0" % (self._env._expand_argument(self._arg[1])[0],),
+            "source '%s'; { declare -x; declare -f; } > $0" % (self._env._expand_argument(self._arg[1])[0],),
             self.parse_decls)
         res = self._cmd._run(redirects, sess, indentation)
         self._pid = self._cmd._pid
@@ -52,13 +96,16 @@ class BashSource(builtin.Builtin):
     
     def parse_decls(self, stdin):
         # Parse and load environment variables from bash
-        for decl in stdin:
-            if decl is None:
+        lines = []
+        for line in stdin:
+            if line is None:
                 yield; continue
-            decl = decl.decode("utf-8")
-            if "=" not in decl: continue
-            name, value = decl[len("declare -x "):].split("=", 1)    
-            self._env._exports[name] = value.strip("\"")
+            lines.append(line)
+        lines = b"\n".join(lines).decode("utf-8")
+        vars, funcs = parse_declares(lines)
+        self._env._exports.update(vars)
+        self._env._bashfunctions.update(funcs)
+        print("XXXXXXXXXXXXXXXX", funcs.keys())
         yield
 
 builtin.BuiltinRegistry.register(BashSource)
