@@ -17,6 +17,7 @@ except:
     MAXFD = 256
 
 class PIPE(object): pass
+class TMP(object): pass
 
 def flags_to_string(flags):
     return ",".join([name[2:]
@@ -74,13 +75,21 @@ class Redirect(object):
             self.source = fd
         return self
     def make_pipe(self):
-        if self.source is not PIPE: return self
-        rfd, wfd = pipe.pipe_cloexec()
-        if self.flag & os.O_WRONLY:
-            sourcefd, pipefd = wfd, rfd
+        if self.source is PIPE:
+            rfd, wfd = pipe.pipe_cloexec()
+            if self.flag & os.O_WRONLY:
+                sourcefd, pipefd = wfd, rfd
+            else:
+                pipefd, sourcefd = wfd, rfd
+            return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
+        elif self.source is TMP:
+            if not (self.flag & os.O_WRONLY):
+                raise Exception("Invalid flag for TMP redirect - must be O_WRONLY")
+            sourcefd, pipefd = tempfile.mkstemp()
+            return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
         else:
-            pipefd, sourcefd = wfd, rfd
-        return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
+            return self
+
     def __repr__(self):
         flagmode = []
         if self.flag != self.fd_flags.get(self.fd, None):

@@ -197,13 +197,13 @@ class Command(command.BaseCommand):
 
         log.log(indentation + "  %s: Command line %s with %s" % (pid, ' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
 
-        proc = running.RunningProcess(self, pid)
-        self._running_processes.append(proc)
+        self._running_process = running.RunningProcess(self, pid)
+        self._running_processes.append(self._running_process)
 
         redirects.close_source_fds()
 
         self._pid = pid
-        self._redirects = proc.redirects = redirects
+        self._redirects = self._running_process.redirects = redirects
 
         return self._running_processes
 
