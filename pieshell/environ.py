@@ -129,6 +129,7 @@ class Environment(object):
             if not pth.startswith("/"):
                 pth = os.path.join(self._cwd, pth)
             res.extend(os.listdir(os.path.abspath(pth)))
+        res.extend(pipeline.BuiltinRegistry.builtins.keys())
         res.sort()
         return res
 
