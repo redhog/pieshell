@@ -84,7 +84,7 @@ pieshell --log=NAME,NAME,NAME
 
 """)
     elif kws.get("version", False):
-        print version.version
+        print(version.version)
     elif kws.get("test", False):
         test()
     else:
