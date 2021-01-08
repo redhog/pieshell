@@ -27,7 +27,7 @@ from . import pipe
 
 class CmdRedirect(base.Pipeline):
     def __init__(self, env, pipeline, redirects):
-        self._env = env
+        Pipeline.__init__(self, env)
         self.pipeline = pipeline
         self.cmd_redirects = redirects
     def __deepcopy__(self, memo = {}):
