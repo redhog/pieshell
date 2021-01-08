@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 import glob
+import code
 
 from . import pipeline
 import pieshell
@@ -179,7 +180,7 @@ class EnvScope(dict):
     def execute_file(self, filename):
         with open(filename) as f:
             content = f.read()
-        exec(content, self)
+        code.InteractiveConsole(locals=self).runsource(content, filename, "exec")
 
     def execute_expr(self, expr):
         exec(expr, self)
