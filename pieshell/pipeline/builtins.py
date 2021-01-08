@@ -105,7 +105,6 @@ class BashSource(builtin.Builtin):
         vars, funcs = parse_declares(lines)
         self._env._exports.update(vars)
         self._env._bashfunctions.update(funcs)
-        print("XXXXXXXXXXXXXXXX", funcs.keys())
         yield
 
 builtin.BuiltinRegistry.register(BashSource)

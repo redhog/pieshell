@@ -5,7 +5,9 @@ from .redir import *
 from .pipeline import *
 from .environ import *
 from .shell import *
+from .module import *
 from .version import *
+
 
 name = "PieShell %s <)" % (version,)
 
