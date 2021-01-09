@@ -59,15 +59,15 @@ class RunningItem(object):
     @property
     def output_files(self):
         return {fd: redirect.pipe
-                for fd, redirect in self.cmd._redirects.redirects.iteritems()
-                if isinstance(redirect.pipe, (str, unicode))}
+                for fd, redirect in self.cmd._redirects.redirects.items()
+                if isinstance(redirect.pipe, (bytes, str))}
     def remove_output_files(self):
-        for fd, name in self.output_files.iteritems():
+        for fd, name in self.output_files.items():
             os.unlink(name)
     def load_output_files(self):
         if self.output_content is not None: return
         self.output_content = {}
-        for fd, name in self.output_files.iteritems():
+        for fd, name in self.output_files.items():
             with open(name) as f:
                 self.output_content[fd] = f.read()
         self.remove_output_files()
@@ -94,7 +94,7 @@ class RunningProcess(RunningItem):
         else:
             status.append("exit_code=%s" % self.iohandler.last_event["ssi_status"])
             if len(self.output_files):
-                for fd, output_file in self.output_files.iteritems():
+                for fd, output_file in self.output_files.items():
                     status.append("%s=%s" % (fd, output_file))
         if status:
             status = ' (' + ', '.join(status) + ')'
@@ -104,6 +104,6 @@ class RunningProcess(RunningItem):
         if display_tmp_content:
             self.load_output_files()
             res += "\n"
-            for fd, value in self.output_content.iteritems():
+            for fd, value in self.output_content.items():
                 res += "%s content:\n%s\n" % (fd, value) 
         return res
