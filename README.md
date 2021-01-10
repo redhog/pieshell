@@ -248,20 +248,23 @@ of the processes involved in the pipeline:
 A RunningItem instance represents an external process or a python
 function:
 
-* RunningProcess.cmd points to the part of the
+* RunningItem.cmd points to the part of the
   RunningPipeline.pipeline structure that gave rise to this process.
 
-* RunningProcess.iohandler.is_running is True if the process is still
+* RunningItem.is_running is True if the process is still
   running.
+
+* RunningItem.is_failed is True if the process has failed somehow
+  (process with non-zero exit status, function threw an exception).
+
+* RunningItem.output_content contains a dictionary of the output of
+  any STRING redirection for the process with the file descriptors as
+  keys.
 
 * RunningProcess.iohandler.last_event contains a dictionary of the
   members of the last event from the process. The members have the
   same names and meaning as the members of the signalfd_siginfo
   struct, see "man signalfd" for details.
-
-* RunningProcess.output_content contains a dictionary of the output of
-  any STRING redirection for the process with the file descriptors as
-  keys.
 
 ## Error handling
 

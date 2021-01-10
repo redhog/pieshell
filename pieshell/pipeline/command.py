@@ -167,7 +167,12 @@ class Command(command.BaseCommand):
             return thing
       
         # FIXME: Thing needs copying
-        arg_pipe = thing._run(redir.Redirects(redir.Redirect(direction, redir.PIPE)), sess, indentation + "  ")
+        arg_pipe = thing._run(
+            redir.Redirects(
+                self._env._redirects,
+                redir.Redirect(direction, redir.PIPE)),
+            sess,
+            indentation + "  ")
 
         fd = redirects.find_free_fd()
         redirects.redirect(
