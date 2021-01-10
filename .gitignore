@@ -2,4 +2,6 @@
 build
 dist
 *.egg-info
+pieshell/README.md
+pieshell/version.py
 *~

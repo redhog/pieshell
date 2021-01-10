@@ -34,7 +34,7 @@ class SpecialRedirect(object):
         return "%s(%s)" % (
             type(self),
             ",".join(("%s=%s" % (name, value)
-                      for name, value in self.kws.iteritems())))
+                      for name, value in self.kws.items())))
 
 class PIPE(SpecialRedirect): pass
 class TMP(SpecialRedirect): pass
@@ -47,13 +47,13 @@ def flags_to_string(flags):
 
 class Redirect(object):
     fd_names = {"stdin": 0, "stdout": 1, "stderr": 2}
-    names_to_fd = {value: key for key, value in fd_names.iteritems()}
+    names_to_fd = {value: key for key, value in fd_names.items()}
     fd_flags = {
         0: os.O_RDONLY,
         1: os.O_WRONLY | os.O_CREAT,
         2: os.O_WRONLY | os.O_CREAT
         }
-    def __init__(self, fd, source = None, flag = None, mode = 0777, pipe=None, borrowed=False):
+    def __init__(self, fd, source = None, flag = None, mode = 0o777, pipe=None, borrowed=False):
         if isinstance(fd, Redirect):
             fd, source, flag, mode, pipe, borrowed = fd.fd, fd.source, fd.flag, fd.mode, fd.pipe, fd.borrowed
         if not isinstance(fd, int):
@@ -122,7 +122,7 @@ class Redirect(object):
         flagmode = []
         if self.flag != self.fd_flags.get(self.fd, None):
             flagmode.append(flags_to_string(self.flag))
-        if self.mode != 0777:
+        if self.mode != 0o777:
             flagmode.append("m=%s" % self.mode)
         if flagmode:
             flagmode = "[" + ",".join(flagmode) + "]"
@@ -145,20 +145,24 @@ class Redirects(object):
         self.redirects = {}
         for redirect in redirects:
             if isinstance(redirect, Redirects):
-                for item in redirect.redirects.itervalues():
+                for item in redirect.redirects.values():
                     self.register(Redirect(item))
             else:
                 self.register(Redirect(redirect))
     def borrow(self):
-        for redirect in self.redirects.itervalues():
+        for redirect in self.redirects.values():
             redirect.borrow()
     def register(self, redirect):
-        if redirect.source is None:
-            del self.redirects[redirect.fd]
+        if isinstance(redirect, Redirects):
+            for item in redirect.redirects.values():
+                self.register(item)
         else:
             if not isinstance(redirect, Redirect):
                 redirect = Redirect(redirect)
-            self.redirects[redirect.fd] = redirect
+            if redirect.source is None:
+                del self.redirects[redirect.fd]
+            else:
+                self.redirects[redirect.fd] = redirect
         return self
     def redirect(self, *arg, **kw):
         self.register(Redirect(*arg, **kw))
@@ -167,18 +171,18 @@ class Redirects(object):
         return Redirects(self, other)
     def find_free_fd(self):
         return max([redirect.fd
-                    for redirect in self.redirects.itervalues()]
+                    for redirect in self.redirects.values()]
                    + [redirect.source
-                      for redirect in self.redirects.itervalues()
+                      for redirect in self.redirects.values()
                       if isinstance(redirect.source, int)]
                    + [2]) + 1
     def make_pipes(self):
         return type(self)(*[redirect.make_pipe()
-                            for redirect in self.redirects.itervalues()])
+                            for redirect in self.redirects.values()])
     def move_existing_fds(self):
         new_fd = self.find_free_fd()
         redirects = []
-        for redirect in self.redirects.itervalues():
+        for redirect in self.redirects.values():
             redirects.append(redirect.move(new_fd))
             new_fd += 1
         log.log("After move: %s" % repr(Redirects(*redirects)), "fd")
@@ -188,7 +192,7 @@ class Redirects(object):
             for redirect in self.move_existing_fds():
                 redirect.perform()
             self.close_other_fds()
-        except Exception, e:
+        except Exception as e:
             import traceback
             log.log(e, "fd")
             log.log(traceback.format_exc(), "fd")
@@ -204,10 +208,13 @@ class Redirects(object):
             else:
                 log.log("CLOSE OTHER FDS %s" % (i,), "fd")
     def close_source_fds(self):
-        for redirect in self.redirects.itervalues():
+        for redirect in self.redirects.values():
             redirect.close_source_fd()
     def __getattr__(self, name):
-        return self.redirects[Redirect.fd_names[name]]
+        try:
+            return self.redirects[Redirect.fd_names[name]]
+        except KeyError:
+            raise AttributeError(name)
     @classmethod
     def _coerce(cls, thing, direction):
         if thing is None:
@@ -220,6 +227,5 @@ class Redirects(object):
             raise ValueError(type(thing))
         return thing
     def __repr__(self):
-        redirects = self.redirects.values()
-        redirects.sort(lambda a, b: cmp(a.fd, b.fd))
+        redirects = sorted(self.redirects.values(), key = lambda a: a.fd)
         return ", ".join(repr(redirect) for redirect in redirects)

@@ -15,6 +15,8 @@ class R(object):
         self.str = str
     def __getattr__(self, name):
         return getattr(self.str, name)
+    def __iter__(self):
+        return iter(self.str)
     def __repr__(self):
         return "R(%s)" % (repr(self.str),)
 
@@ -41,6 +43,7 @@ class Environment(object):
             self._cd(cwd)
         self._exports = exports
         self._interactive = interactive
+        self._bashfunctions = {}
         self._scope = None
         if redirects is None:
             redirects = redir.Redirects()
@@ -75,7 +78,7 @@ class Environment(object):
         res = glob.glob(self._expand_path(arg))
         if not res: return [arg]
         if self._cwd != "/":
-            for idx in xrange(0, len(res)):
+            for idx in range(0, len(res)):
                 if res[idx].startswith(self._cwd + "/"):
                     res[idx] = "./" + res[idx][len(self._cwd + "/"):]
         return res
@@ -118,9 +121,9 @@ class Environment(object):
         """Creates a pipeline of one command in the current
         environment."""
         if name == "_":
-            return pipeline.BaseCommand(self)
+            return pipeline.command.BaseCommand(self)
         else:
-            return pipeline.BaseCommand(self, [name])
+            return pipeline.command.BaseCommand(self, [name])
     def _coerce(self, thing, direction):
         if thing is None:
             thing = "/dev/null"
@@ -187,21 +190,21 @@ class EnvScope(dict):
             if name in env._exports:
                 return env._exports[name]
             if name in __builtins__:
-                raise
+                raise KeyError(name)
         return getattr(env, name)
 
     def keys(self):
         return dict.keys(self) + dir(dict.__getitem__(self, 'env'))
 
+    def __bytes__(self):
+        return str(self).encode("utf-8")
+    
     def __str__(self):
-        return unicode(self).encode('utf-8')
-
-    def __unicode__(self):
         try:
-            return unicode(dict.__getitem__(self, 'env'))
-        except Exception, e:
+            return str(dict.__getitem__(self, 'env'))
+        except Exception as e:
             traceback.print_exc()
-            return u'<%s>' % e
+            return '<%s>' % e
 
     def execute_file(self, filename):
         with open(filename) as f:
@@ -209,7 +212,7 @@ class EnvScope(dict):
         code.InteractiveConsole(locals=self).runsource(content, filename, "exec")
 
     def execute_expr(self, expr):
-        exec expr in self
+        exec(expr, self)
 
     def execute_startup(self):
         env = self["env"]

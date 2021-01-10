@@ -1,7 +1,7 @@
 import sys
 import os
 import types
-import environ
+from . import environ
 
 class Module(types.ModuleType):
     def __init__(self, scope, name, doc = None):
