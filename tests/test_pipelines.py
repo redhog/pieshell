@@ -16,7 +16,6 @@ class TestPipelines:
 
     def test_function_pipeline(self):
         import function_pipeline
-        print "NNNNNNNNNNNNNNNNNNNNNNNNNNNNN", function_pipeline.output
         assert function_pipeline.output == ['Start', 'Read >Script run works<', 'End']
 
     def test_argpipe_pipeline(self):
@@ -28,3 +27,8 @@ class TestPipelines:
         import error_pipeline
         assert error_pipeline.output is None
         assert error_pipeline.error is not None
+
+    def DISABLEDtest_bashsource_pipeline(self):
+        import bashsource_pipeline
+        assert 'xxx ()' in bashsource_pipeline.env._exports["bash_functions"]
+        assert 'yyy' in bashsource_pipeline.env._exports
