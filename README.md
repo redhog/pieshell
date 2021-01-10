@@ -290,6 +290,19 @@ exception handling:
     except PipelineFailed, e:
         e.pipeline.failed_processes[0].pipeline
 
+## Bashsource
+
+Bash provides the command `source` to run the content of a bash script inside the current shell,
+effectively letting an external script update the environment variables of the running shell.
+This functionality is often used for setting up local development environments, like `virtualenv`.
+
+Pieshell provides a builtin to emulate this functionality, with bash scripts:
+
+    >>> bashsource("myscript.sh")
+
+will run `myscript.sh` in a bash shell followed by `declare -x`. It parses the output of
+`declare -x` and updates `exports` accordingly.
+
 # As a python module
 
     >>> from pieshell import *
