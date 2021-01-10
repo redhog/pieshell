@@ -1,9 +1,14 @@
+import pieshell.log
+
 def testfn(stdin):
+    pieshell.log.log("TEST FN START", "test")
     yield "Start"
     for line in stdin:
         if line is None:
             yield; continue
+        pieshell.log.log("TEST DATA %s" % line, "test")
         yield "Read >%s<" % line
     yield "End"
+    pieshell.log.log("TEST FN END", "test")
 
 output = list(bash("argpipe_pipeline.sh", testfn))
