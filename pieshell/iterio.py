@@ -346,6 +346,12 @@ CLD_TRAPPED = 4   # Traced child has trapped.
 CLD_STOPPED = 5   # Child has stopped.
 CLD_CONTINUED = 6 # Stopped child has continued.
 
+signals_by_value = {
+    value: name
+    for name, value in ((name, getattr(signal, name)) for name in dir(signal))
+    if isinstance(value, int)                    
+}
+
 def siginfo_to_names(siginfo):
     siginfo = dict(siginfo)
     for key in siginfo:
@@ -361,8 +367,7 @@ def siginfo_to_names(siginfo):
         if (   key == "ssi_signo"
             or (key == "ssi_status"
                 and siginfo["ssi_code"] != CLD_EXITED)):
-            val = [name for name in dir(signal)
-                   if getattr(signal, name) == val][0]
+            val = signals_by_value.get(val, val)
         siginfo[key] = val
     return siginfo
 
