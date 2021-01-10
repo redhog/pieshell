@@ -105,11 +105,12 @@ class BaseCommand(base.Pipeline):
         return u"%s(%s)%s" % (prefix, ', '.join(args), running_process)
 
     def _arg_list(self, redirects = None, sess = None, indentation = ""):
+        orig_redirects = redir.Redirects(redirects)
         def handle_arg_pipes(item):
             if isinstance(item, str):
                 return item
             elif redirects is not None:
-                return self._handle_arg_pipes(item, redirects, sess, indentation)
+                return self._handle_arg_pipes(item, orig_redirects, redirects, sess, indentation)
             else:
                 return "/dev/fd/X"
         args = []
@@ -150,7 +151,7 @@ class Command(command.BaseCommand):
         os.execvpe(args[0], args, self._env._exports)
         os._exit(-1)
 
-    def _handle_arg_pipes(self, thing, redirects, sess, indentation):
+    def _handle_arg_pipes(self, thing, orig_redirects, redirects, sess, indentation):
         from . import function
         if isinstance(thing, str):
             return thing
@@ -166,10 +167,9 @@ class Command(command.BaseCommand):
             # Not a named pipe item, just a string
             return thing
       
-        # FIXME: Thing needs copying
         arg_pipe = thing._run(
             redir.Redirects(
-                self._env._redirects,
+                orig_redirects,
                 redir.Redirect(direction, redir.PIPE)),
             sess,
             indentation + "  ")
