@@ -58,7 +58,13 @@ class IOManager(object):
     
     def handle_io(self, timeout = None):
         while self.io_handlers:
-            events = self.poll.poll(timeout)
+            try:
+                events = self.poll.poll(timeout)
+            except IOError as e:
+                if e.errno == errno.EINTR:
+                    continue
+                raise
+
             log.log("EVENTS %s" % (", ".join("%s:%s" % (fd, events_to_str(event))
                                              for (fd, event) in events),), "ioevent")
             assert timeout is not None or events
