@@ -38,7 +38,7 @@ class RunningPipeline(object):
         self.pipeline = pipeline
     def __iter__(self):
         def handle_input():
-            for line in iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe):
+            for line in iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe, usage=self):
                 yield line
             self.wait()
         return iter(handle_input())

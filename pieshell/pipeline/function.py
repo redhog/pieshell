@@ -94,7 +94,7 @@ class Function(base.Pipeline):
                 thing = thing(redirects.stdin.source.iter, *self._arg, **self._kw)
             else:
                 thing = thing(
-                    iterio.LineInputHandler(redirects.stdin.open(False)),
+                    iterio.LineInputHandler(redirects.stdin.open(False), usage=self),
                     *self._arg, **self._kw)
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
@@ -111,7 +111,8 @@ class Function(base.Pipeline):
                 self,
                 iterio.LineOutputHandler(
                     redirects.stdout.open(False),
-                    (convert(x) for x in thing)))
+                    (convert(x) for x in thing),
+                    usage=self))
             self._running_processes = [self._running_process]
             self._redirects = self._running_process.redirects = redirects
 
