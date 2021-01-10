@@ -107,7 +107,7 @@ class Function(base.Pipeline):
                 source=output_iterpipe,
                 pipe=output_iterpipe(iter=thing))
         else:
-            self._running_process = RunningFunction(
+            self._running_process = running.RunningFunction(
                 self,
                 iterio.LineOutputHandler(
                     redirects.stdout.open(False),

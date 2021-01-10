@@ -1,3 +1,4 @@
+import unittest
 import pieshell
 import sys
 import os
@@ -7,28 +8,28 @@ sys.path[0:0] = [dir]
 pieshell.envScope["env"]._cd(dir)
 
 
-class TestPipelines:
+class TestPipelines(unittest.TestCase):
     def test_simple_pipeline(self):
         import simple_pipeline
-        assert "simple_pipeline.pysh" in simple_pipeline.output
-        assert "hello world" in simple_pipeline.output
-        assert simple_pipeline.foo == 3
+        self.assertIn(b"simple_pipeline.pysh", simple_pipeline.output)
+        self.assertIn(b"hello world", simple_pipeline.output)
+        self.assertEqual(simple_pipeline.foo, 3)
 
     def test_function_pipeline(self):
         import function_pipeline
-        assert function_pipeline.output == ['Start', 'Read >Script run works<', 'End']
+        self.assertEqual(function_pipeline.output, [b'Start', b"Read >b'Script run works'<", b'End'])
 
     def test_argpipe_pipeline(self):
         import argpipe_pipeline
-        assert "FOO" in argpipe_pipeline.output
-        assert "Read >BAR<" in argpipe_pipeline.output[2]
+        self.assertIn(b"FOO", argpipe_pipeline.output)
+        self.assertIn(b"Read >b'BAR'<", argpipe_pipeline.output[2])
 
     def test_error_pipeline(self):
         import error_pipeline
-        assert error_pipeline.output is None
-        assert error_pipeline.error is not None
+        self.assertIsNone(error_pipeline.output)
+        self.assertIsNotNone(error_pipeline.error)
 
-    def DISABLEDtest_bashsource_pipeline(self):
+    def test_bashsource_pipeline(self):
         import bashsource_pipeline
-        assert 'xxx ()' in bashsource_pipeline.env._exports["bash_functions"]
-        assert 'yyy' in bashsource_pipeline.env._exports
+        #self.assertIn('xxx ()', bashsource_pipeline.env._exports["bash_functions"])
+        self.assertIn('yyy', bashsource_pipeline.env._exports)
