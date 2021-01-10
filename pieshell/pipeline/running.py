@@ -56,8 +56,10 @@ class RunningItem(object):
     def __init__(self, cmd, iohandler):
         self.cmd = cmd
         self.iohandler = iohandler
+        self.output_content = None
     @property
     def output_files(self):
+        if self.output_content is not None: return {}
         return {fd: redirect.pipe
                 for fd, redirect in self.cmd._redirects.redirects.items()
                 if isinstance(redirect.pipe, (bytes, str))}
@@ -66,10 +68,11 @@ class RunningItem(object):
             os.unlink(name)
     def load_output_files(self):
         if self.output_content is not None: return
-        self.output_content = {}
+        output_content = {}
         for fd, name in self.output_files.items():
             with open(name) as f:
-                self.output_content[fd] = f.read()
+                output_content[fd] = f.read()
+        self.output_content = output_content
         self.remove_output_files()
     def __getattr__(self, name):
         return getattr(self.iohandler, name)
@@ -81,7 +84,6 @@ class RunningFunction(RunningItem):
 class RunningProcess(RunningItem):
     def __init__(self, cmd, pid):
         RunningItem.__init__(self, cmd, iterio.ProcessSignalHandler(pid))
-        self.output_content = None
     def __repr__(self, display_tmp_content=False):
         status = []
         last_event = self.iohandler.last_event
@@ -93,7 +95,7 @@ class RunningProcess(RunningItem):
                 status.append("signal=%s" % self.iohandler.last_event["ssi_status"])
         else:
             status.append("exit_code=%s" % self.iohandler.last_event["ssi_status"])
-            if len(self.output_files):
+            if len(self.output_files) and not display_tmp_content:
                 for fd, output_file in self.output_files.items():
                     status.append("%s=%s" % (fd, output_file))
         if status:
