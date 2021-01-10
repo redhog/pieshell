@@ -58,7 +58,7 @@ class Function(base.Pipeline):
             if self._arg:
                 args += [repr(arg) for arg in self._arg]
             if self._kw:
-                args += ["%s=%s" % (key, repr(value)) for (key, value) in self._kw.iteritems()]
+                args += ["%s=%s" % (key, repr(value)) for (key, value) in self._kw.items()]
             return u"%s(%s)" % (self._function_name(), ','.join(args))
         else:
             return repr(thing)

@@ -124,6 +124,22 @@ class Environment(object):
             return pipeline.command.BaseCommand(self)
         else:
             return pipeline.command.BaseCommand(self, [name])
+    def _coerce(self, thing, direction):
+        if thing is None:
+            thing = "/dev/null"
+        if isinstance(thing, (str, unicode)):
+            thing = redir.Redirect(direction, thing)
+        if isinstance(thing, redir.Redirect):
+            thing = redir.Redirects(thing, defaults=False)
+        if not isinstance(thing, redir.Redirect):
+            raise ValueError(type(thing))
+        return thing
+    def __ror__(self, other):
+        """Sets default redirects."""
+        self._redirects.register(self._redirects._coerce(other, 'stdin'))
+    def __or__(self, other):
+        """Sets default redirects."""
+        self._redirects.register(self._redirects._coerce(other, 'stdout'))
     def __repr__(self):
         """Prints the current prompt"""
         if self._interactive:
