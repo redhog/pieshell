@@ -20,6 +20,7 @@ It can be used in two major ways:
   * [Argument expansion](#argument-expansion)
   * [Processes](processes)
   * [Error handling](#error-handling)
+  * [Bashsource](#bashsource)
 * [As a python module](#as-a-python-module)
   * [Environment variables](#environment-variables-1)
   * [Argument expansion](#argument-expansion-1)
@@ -289,6 +290,19 @@ exception handling:
     try:
     except PipelineFailed, e:
         e.pipeline.failed_processes[0].pipeline
+
+## Bashsource
+
+Bash provides the command `source` to run the content of a bash script inside the current shell,
+effectively letting an external script update the environment variables of the running shell.
+This functionality is often used for setting up local development environments, like `virtualenv`.
+
+Pieshell provides a builtin to emulate this functionality, with bash scripts:
+
+    >>> bashsource("myscript.sh")
+
+will run `myscript.sh` in a bash shell followed by `declare -x`. It parses the output of
+`declare -x` and updates `exports` accordingly.
 
 # As a python module
 
