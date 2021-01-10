@@ -1,0 +1,8 @@
+title: Pieshell
+description: Python shell environment that combines the expressiveness of shell pipelines with the prower of python iterators
+google_analytics: 
+show_downloads: true
+theme: jekyll-theme-dinky
+
+gems:
+  - jekyll-mentions
