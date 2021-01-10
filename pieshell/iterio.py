@@ -88,7 +88,7 @@ class IOManager(object):
                 return
 
     def __repr__(self):
-        return "IOManager(%s)" % (", ".join(repr(iohandler) for iohandler in self.io_handlers.itervalues()),)
+        return "IOManager(%s)" % (", ".join(repr(iohandler) for iohandler in self.io_handlers.values()),)
 
 io_managers = threading.local()
 def get_io_manager():
