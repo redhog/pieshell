@@ -20,6 +20,7 @@ It can be used in two major ways:
   * [Argument expansion](#argument-expansion)
   * [Processes](processes)
   * [Error handling](#error-handling)
+  * [Bashsource](#bashsource)
 * [As a python module](#as-a-python-module)
   * [Environment variables](#environment-variables-1)
   * [Argument expansion](#argument-expansion-1)
