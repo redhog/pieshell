@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 import os.path
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 with open(os.path.join(os.path.dirname(__file__), "README.md"), "r") as rf:
     with open(os.path.join(os.path.dirname(__file__), "pieshell", "README.md"), "w") as wf:

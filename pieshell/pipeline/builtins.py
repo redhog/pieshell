@@ -122,7 +122,7 @@ class BashSource(builtin.Builtin):
             if line is None:
                 yield; continue
             lines.append(line)
-        lines = b"\n".join(lines).decode("utf-8")
+        lines = "\n".join(lines)
         vars, funcs = parse_declares(lines)
         self._env._exports.update(vars)
         self._env._bashfunctions.update(funcs)

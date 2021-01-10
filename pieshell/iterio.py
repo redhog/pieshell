@@ -267,7 +267,7 @@ class LineInputHandler(InputHandler):
         if b'\n' not in self.buffer:
             self.buffer += b'\n' # No newline at end of file...
         ret, self.buffer = self.buffer.split(b"\n", 1)
-        return ret
+        return ret.decode("utf-8")
 
 ALL_SIGNALS = set(getattr(signal, name) for name in dir(signal) if name.startswith("SIG") and '_' not in name)
 

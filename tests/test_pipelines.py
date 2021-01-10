@@ -11,18 +11,18 @@ pieshell.envScope["env"]._cd(dir)
 class TestPipelines(unittest.TestCase):
     def test_simple_pipeline(self):
         import simple_pipeline
-        self.assertIn(b"simple_pipeline.pysh", simple_pipeline.output)
-        self.assertIn(b"hello world", simple_pipeline.output)
+        self.assertIn("simple_pipeline.pysh", simple_pipeline.output)
+        self.assertIn("hello world", simple_pipeline.output)
         self.assertEqual(simple_pipeline.foo, 3)
 
     def test_function_pipeline(self):
         import function_pipeline
-        self.assertEqual(function_pipeline.output, [b'Start', b"Read >b'Script run works'<", b'End'])
+        self.assertEqual(function_pipeline.output, ['Start', "Read >Script run works<", 'End'])
 
     def test_argpipe_pipeline(self):
         import argpipe_pipeline
-        self.assertIn(b"FOO", argpipe_pipeline.output)
-        self.assertIn(b"Read >b'BAR'<", argpipe_pipeline.output[2])
+        self.assertIn("FOO", argpipe_pipeline.output)
+        self.assertIn("Read >BAR<", argpipe_pipeline.output[2])
 
     def test_error_pipeline(self):
         import error_pipeline
