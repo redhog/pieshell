@@ -20,7 +20,7 @@ class PipelineFailed(Exception):
     def __init__(self, pipeline):
         self.pipeline = pipeline
     def __str__(self):
-        return "%s failed:\n%s" % (
+        return "Pipeline failed: %s:\n\n%s" % (
             self.pipeline,
             "\n\n================================\n\n".join(
                 [proc.__repr__(display_tmp_content=True)

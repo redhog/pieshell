@@ -114,10 +114,7 @@ class Pipeline(DescribableObject):
             pipeline = self.run()
             pipeline.wait()
         except (Exception, KeyboardInterrupt) as e:
-            procs = ""
-            if pipeline is not None:
-                procs = " in %s" % repr(pipeline.processes)
-            log.log("Error: %s%s" % (e, procs), "error")
+            log.log("Error:\n%s" % (e,), "error")
             sys.last_traceback = sys.exc_info()[2]
             import pdb
             pdb.pm()
