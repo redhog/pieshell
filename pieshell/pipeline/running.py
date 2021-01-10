@@ -37,7 +37,11 @@ class RunningPipeline(object):
         self.processes = processes
         self.pipeline = pipeline
     def __iter__(self):
-        return iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe)
+        def handle_input():
+            for line in iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe):
+                yield line
+            self.wait()
+        return iter(handle_input())
     def wait(self):
         while functools.reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
             iterio.get_io_manager().handle_io()
