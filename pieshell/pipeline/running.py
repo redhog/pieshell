@@ -17,15 +17,20 @@ import functools
 from .. import iterio
 from .. import redir
 
-class PipelineFailed(Exception):
+class PipelineError(exceptions.BaseException):
+    description = "Pipeline"
     def __init__(self, pipeline):
         self.pipeline = pipeline
     def __str__(self):
-        return "Pipeline failed: %s:\n\n%s" % (
+        return "%s: %s:\n\n%s" % (
+            self.description,
             self.pipeline,
             "\n\n================================\n\n".join(
                 [proc.__repr__(display_output=True)
                  for proc in self.pipeline.failed_processes]))
+
+class PipelineFailed(PipelineError, Exception): description = "Pipeline failed"
+class PipelineInterrupted(PipelineError, KeyboardInterrupt): description = "Pipeline canceled"
 
 class RunningPipeline(object):
     def __init__(self, processes, pipeline):

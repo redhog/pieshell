@@ -18,6 +18,8 @@ It can be used in two major ways:
     commands](#interfacing-between-python-functions-and-shell-commands)
   * [Environment variables](#environment-variables)
   * [Argument expansion](#argument-expansion)
+  * [Processes](processes)
+  * [Error handling](#error-handling)
 * [As a python module](#as-a-python-module)
   * [Environment variables](#environment-variables-1)
   * [Argument expansion](#argument-expansion-1)
@@ -217,6 +219,72 @@ wrapped in a call to R(), e.g. R("my * string * here")ñ.
     variables as well as environment variables.
 
   * Pattern matching is done using glob.glob()
+
+## Processes
+
+A running pipeline is represented by a RunningPipeline instance. This
+object is returned by the Pipeline.run() and
+Pipeline.run_interactive() methods. In interactive shell mode the
+RunningPipeline instance for the last executed pipeline is available
+in the last_pipeline variable.
+
+A RunningPipeline instance can be used to extract events and statuses
+of the processes involved in the pipeline:
+
+* RunningPipeline.processes is a list of RunningItem instances, each
+  representing an external process or a python function.
+
+* RunningPipeline.failed_processes is a list of RunningItem instances
+  for those processes in the pipeline that have failed (returned a
+  non-zero exit status).
+
+* RunningPipeline.pipeline is a (deep) copy of the original pipeline
+  object, with additional run status added, e.g. links to processes,
+  exit status etc.
+
+* RunningPipeline.wait() waits for all processes in the pipeline to
+  terminate.
+
+A RunningItem instance represents an external process or a python
+function:
+
+* RunningProcess.cmd points to the part of the
+  RunningPipeline.pipeline structure that gave rise to this process.
+
+* RunningProcess.iohandler.is_running is True if the process is still
+  running.
+
+* RunningProcess.iohandler.last_event contains a dictionary of the
+  members of the last event from the process. The members have the
+  same names and meaning as the members of the signalfd_siginfo
+  struct, see "man signalfd" for details.
+
+* RunningProcess.output_content contains a dictionary of the output of
+  any STRING redirection for the process with the file descriptors as
+  keys.
+
+## Error handling
+
+When a pipeline fails, e.g. by one of the involved processes exiting
+with a non-zero status, RunningPipeline.wait() and
+Pipeline.run_interactive() will throw a PipelineFailed exception after
+all processes have exited.
+
+* PipelineFailed.pipeline holds a reference to the RunningPipeline
+  instance that generated the exception.
+
+If a pipeline is interrupted with CTRL-C, a PipelineInterrupted is
+raised.
+
+* PipelineInterrupted.pipeline holds a reference to the
+  RunningPipeline instance.
+
+If you want to catch errors in a script, you can use normal Python
+exception handling:
+
+    try:
+    except PipelineFailed, e:
+        e.pipeline.failed_processes[0].pipeline
 
 # As a python module
 

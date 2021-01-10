@@ -13,6 +13,7 @@ import operator
 import re
 import builtins        
 import functools
+import exceptions
 
 from .. import copy
 from .. import redir
@@ -109,15 +110,11 @@ class Pipeline(DescribableObject):
         return pipeline
 
     def run_interactive(self):
-        pipeline = None
+        pipeline = self.run()
         try:
-            pipeline = self.run()
             pipeline.wait()
-        except (Exception, KeyboardInterrupt) as e:
-            log.log("Error:\n%s" % (e,), "error")
-            sys.last_traceback = sys.exc_info()[2]
-            import pdb
-            pdb.pm()
+        except KeyboardInterrupt, e:
+            raise PipelineInterrupted(pipeline)
         return pipeline
 
     def __iter__(self):
@@ -139,7 +136,15 @@ class Pipeline(DescribableObject):
         pipeline without running it."""
 
         if not self._started and self._env._interactive and getattr(repr_state, "in_repr", 0) < 1:
-            self.run_interactive()
+            try:
+                self.run_interactive()
+            except KeyboardInterrupt, e:
+                log.log("Canceled:\n%s" % (e,), "error")
+            except Exception, e:
+                log.log("Error:\n%s" % (e,), "error")
+                sys.last_traceback = sys.exc_info()[2]
+                import pdb
+                pdb.pm()
             return ''
         else:
             current_env = getattr(Pipeline._print_state, 'env', None)
