@@ -17,15 +17,28 @@ except:
     MAXFD = 256
 
 class SpecialRedirect(object):
-    def __init__(self, name):
-        self.name = name
+    class __metaclass__(type):
+        def __str__(self):
+            return repr(self)
+        def __repr__(self):
+            return self.__name__
+    def __init__(self, **kws):
+        object.__setattr__(self, "kws", kws)
+    def __getattr__(self, name):
+        return self.kws[name]
+    def __setattr__(self, name):
+        self.kws[name] = value
     def __str__(self):
-        return self.name
+        return repr(self)
     def __repr__(self):
-        return self.name
+        return "%s(%s)" % (
+            type(self),
+            ",".join(("%s=%s" % (name, value)
+                      for name, value in self.kws.iteritems())))
 
-PIPE = SpecialRedirect("PIPE")
-TMP = SpecialRedirect("TMP")
+class PIPE(SpecialRedirect): pass
+class TMP(SpecialRedirect): pass
+class STRING(TMP): pass
 
 def flags_to_string(flags):
     return ",".join([name[2:]
@@ -34,6 +47,7 @@ def flags_to_string(flags):
 
 class Redirect(object):
     fd_names = {"stdin": 0, "stdout": 1, "stderr": 2}
+    names_to_fd = {value: key for key, value in fd_names.iteritems()}
     fd_flags = {
         0: os.O_RDONLY,
         1: os.O_WRONLY | os.O_CREAT,
@@ -83,18 +97,18 @@ class Redirect(object):
             self.source = fd
         return self
     def make_pipe(self):
-        if self.source is PIPE:
+        if isinstance(self.source, type) and issubclass(self.source, PIPE):
             rfd, wfd = pipe.pipe_cloexec()
             if self.flag & os.O_WRONLY:
                 sourcefd, pipefd = wfd, rfd
             else:
                 pipefd, sourcefd = wfd, rfd
             return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
-        elif self.source is TMP:
+        elif isinstance(self.source, type) and issubclass(self.source, (TMP, STRING)):
             if not (self.flag & os.O_WRONLY):
-                raise Exception("Invalid flag for TMP redirect - must be O_WRONLY")
+                raise Exception("Invalid flag for %s redirect - must be O_WRONLY" % self.source)
             sourcefd, pipefd = tempfile.mkstemp()
-            return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
+            return type(self)(self.fd, sourcefd, self.flag, self.mode, self.source(path=pipefd))
         else:
             return self
 

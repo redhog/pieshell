@@ -23,7 +23,7 @@ class PipelineFailed(Exception):
         return "Pipeline failed: %s:\n\n%s" % (
             self.pipeline,
             "\n\n================================\n\n".join(
-                [proc.__repr__(display_tmp_content=True)
+                [proc.__repr__(display_output=True)
                  for proc in self.pipeline.failed_processes]))
 
 class RunningPipeline(object):
@@ -36,10 +36,7 @@ class RunningPipeline(object):
         while functools.reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
             iterio.get_io_manager().handle_io()
         if self.failed_processes:
-            exc = PipelineFailed(self)
-            for proc in self.processes:
-                proc.load_output_files()
-            raise exc
+            raise PipelineFailed(self)
     @property
     def failed_processes(self):
         return [proc
@@ -56,24 +53,22 @@ class RunningItem(object):
     def __init__(self, cmd, iohandler):
         self.cmd = cmd
         self.iohandler = iohandler
-        self.output_content = None
+        self.output_content = {}
+    def handle_finish(self):
+        for fd, redirect in self.cmd._redirects.redirects.iteritems():
+            if not isinstance(redirect.pipe, redir.STRING): continue
+            with open(redirect.pipe.path) as f:
+                self.output_content[fd] = f.read()
+            os.unlink(redirect.pipe.path)
     @property
     def output_files(self):
         if self.output_content is not None: return {}
         return {fd: redirect.pipe
                 for fd, redirect in self.cmd._redirects.redirects.items()
-                if isinstance(redirect.pipe, (bytes, str))}
+                if isinstance(redirect.pipe, redir.TMP) and not isinstance(redirect.pipe, redir.STRING)}
     def remove_output_files(self):
         for fd, name in self.output_files.items():
             os.unlink(name)
-    def load_output_files(self):
-        if self.output_content is not None: return
-        output_content = {}
-        for fd, name in self.output_files.items():
-            with open(name) as f:
-                output_content[fd] = f.read()
-        self.output_content = output_content
-        self.remove_output_files()
     def __getattr__(self, name):
         return getattr(self.iohandler, name)
 
@@ -82,9 +77,18 @@ class RunningFunction(RunningItem):
         return '%s(%s)' % (self.cmd._function_name(), ",".join(self.iohandler._repr_args()))
 
 class RunningProcess(RunningItem):
+    class ProcessSignalHandler(iterio.ProcessSignalHandler):
+        def __init__(self, process, pid):
+            self.process = process
+            iterio.ProcessSignalHandler.__init__(self, pid)
+        def handle_event(self, event):
+            res = iterio.ProcessSignalHandler.handle_event(self, event)
+            if not self.is_running:
+                self.process.handle_finish()
+            return res
     def __init__(self, cmd, pid):
-        RunningItem.__init__(self, cmd, iterio.ProcessSignalHandler(pid))
-    def __repr__(self, display_tmp_content=False):
+        RunningItem.__init__(self, cmd, self.ProcessSignalHandler(self, pid))
+    def __repr__(self, display_output=False):
         status = []
         last_event = self.iohandler.last_event
         if last_event:
@@ -95,7 +99,7 @@ class RunningProcess(RunningItem):
                 status.append("signal=%s" % self.iohandler.last_event["ssi_status"])
         else:
             status.append("exit_code=%s" % self.iohandler.last_event["ssi_status"])
-            if len(self.output_files) and not display_tmp_content:
+            if len(self.output_files):
                 for fd, output_file in self.output_files.items():
                     status.append("%s=%s" % (fd, output_file))
         if status:
@@ -103,9 +107,9 @@ class RunningProcess(RunningItem):
         else:
             status = ''
         res = '%s%s' % (self.iohandler.pid, status)
-        if display_tmp_content:
-            self.load_output_files()
+        if display_output:
             res += "\n"
             for fd, value in self.output_content.items():
+                fd = redir.Redirect.names_to_fd.get(fd, fd)
                 res += "%s content:\n%s\n" % (fd, value) 
         return res
