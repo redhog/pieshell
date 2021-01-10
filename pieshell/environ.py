@@ -5,6 +5,7 @@ import glob
 import code
 
 from . import pipeline
+from . import redir
 import pieshell
 
 
@@ -34,7 +35,7 @@ class Environment(object):
         Command(env, "COMMAND_NAME")
     """
 
-    def __init__(self, cwd = None, exports = None, interactive = False):
+    def __init__(self, cwd = None, exports = None, interactive = False, redirects = None):
         """Creates a new environment from scratch. Takes the same
         arguments as __call__."""
         self._cwd = os.getcwd()
@@ -44,6 +45,12 @@ class Environment(object):
         self._interactive = interactive
         self._bashfunctions = {}
         self._scope = None
+        if redirects is None:
+            redirects = redir.Redirects()
+            redirects.redirect(0, 0, borrowed=True)
+            redirects.redirect(1, 1, borrowed=True)
+            redirects.redirect(2, redir.STRING)
+        self._redirects = redirects
     @property
     def _exports(self):
         return self._exports_value or os.environ
@@ -83,7 +90,7 @@ class Environment(object):
         if self._interactive:
             os.chdir(cwd)
         return self
-    def __call__(self, cwd = None, exports = None, interactive = None):
+    def __call__(self, cwd = None, exports = None, interactive = None, redirects = None):
         """Creates a new environment based on the current ones. All
         configuration is copied, unless specifically overridden.
 
@@ -101,7 +108,9 @@ class Environment(object):
             exports = self._exports
         if interactive is None:
             interactive = self._interactive
-        res = type(self)(cwd = self._cwd, exports = exports, interactive = interactive)
+        if redirects is None:
+            redirects = self._redirects
+        res = type(self)(cwd = self._cwd, exports = exports, interactive = interactive, redirects = redirects)
         if cwd is not None:
             res.cd(cwd)
         return res

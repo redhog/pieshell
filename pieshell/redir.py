@@ -134,15 +134,11 @@ class Redirect(object):
 class Redirects(object):
     def __init__(self, *redirects, **kw):
         self.redirects = {}
-        if redirects and isinstance(redirects[0], Redirects):
-            for redirect in redirects[0].redirects.values():
-                self.register(Redirect(redirect))
-        else:
-            if kw.get("defaults", True):
-                self.redirect(0, 0, borrowed=True)
-                self.redirect(1, 1, borrowed=True)
-                self.redirect(2, 2, borrowed=True)
-            for redirect in redirects:
+        for redirect in redirects:
+            if isinstance(redirect, Redirects):
+                for item in redirect.redirects.values():
+                    self.register(Redirect(item))
+            else:
                 self.register(redirect)
     def register(self, redirect):
         if not isinstance(redirect, Redirect):
