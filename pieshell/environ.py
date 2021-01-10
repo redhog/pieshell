@@ -51,6 +51,7 @@ class Environment(object):
             redirects.redirect(1, 1, borrowed=True)
             redirects.redirect(2, redir.STRING)
         self._redirects = redirects
+        self._clear_dir_cache()
     @property
     def _exports(self):
         return self._exports_value or os.environ
@@ -145,17 +146,20 @@ class Environment(object):
             return "%s:%s >>> " % (str(id(self))[:3], self._cwd)
         else:
             return "[%s:%s]" % (str(id(self))[:3], self._cwd)
+    def _clear_dir_cache(self):
+        self._dir_cache = None
     def __dir__(self):
-        e = self._exports
-        res = []
-        paths = e["PATH"].split(":")
-        for pth in paths:
-            if not pth.startswith("/"):
-                pth = os.path.join(self._cwd, pth)
-            res.extend(os.listdir(os.path.abspath(pth)))
-        res.extend(pipeline.BuiltinRegistry.builtins.keys())
-        res.sort()
-        return res
+        if self._dir_cache is None:
+            e = self._exports
+            self._dir_cache = []
+            paths = e["PATH"].split(":")
+            for pth in paths:
+                if not pth.startswith("/"):
+                    pth = os.path.join(self._cwd, pth)
+                self._dir_cache.extend(os.listdir(os.path.abspath(pth)))
+            self._dir_cache.extend(pipeline.BuiltinRegistry.builtins.keys())
+            self._dir_cache.sort()
+        return self._dir_cache
 
 env = Environment()
 

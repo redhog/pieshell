@@ -34,6 +34,27 @@ class CdBuiltin(builtin.Builtin):
 
 builtin.BuiltinRegistry.register(CdBuiltin)
 
+class ClearDirCacheBuiltin(builtin.Builtin):
+    """Clear the tab completion cache
+    """
+    name = "clear_dir_cache"
+
+    def _run(self, redirects, sess, indentation = ""):
+        self.env._clear_dir_cache()
+        return []
+
+    def __dir__(self):
+        if self._arg[1:]:
+            pth = self.env._expand_path(self._path)
+        else:
+            pth = "."
+        try:
+            return [name for name in os.listdir(pth)
+                    if os.path.isdir(os.path.join(pth, name))]
+        except:
+            return []
+
+builtin.BuiltinRegistry.register(ClearDirCacheBuiltin)
 
 def parse_declares(data):
     l = shlex.shlex(io.StringIO(data), posix=True)
