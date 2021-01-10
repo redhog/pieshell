@@ -81,6 +81,9 @@ class IOManager(object):
             if timeout is not None:
                 return
 
+    def __repr__(self):
+        return "IOManager(%s)" % (", ".join(repr(iohandler) for iohandler in self.io_handlers.itervalues()),)
+
 io_managers = threading.local()
 def get_io_manager():
     global signal_manager
@@ -99,10 +102,11 @@ def get_signal_manager():
 
 class IOHandler(object):
     events = 0
-    def __init__(self, fd, borrowed = False):
+    def __init__(self, fd, borrowed = False, usage = None):
         self.fd = fd
         self.borrowed = borrowed
         self.enabled = True
+        self.usage = usage
         get_io_manager().register(self)
     def handle_event(self, event):
         pass
@@ -121,6 +125,8 @@ class IOHandler(object):
         get_io_manager().enable(self)
     def _repr_args(self):
         args = [str(self.fd)]
+        if self.usage:
+            args.append("for %s" % repr(self.usage))
         if self.enabled:
             args.append("enabled")
         return args
@@ -131,12 +137,12 @@ class IOHandler(object):
 class OutputHandler(IOHandler):
     events = select.POLLOUT
 
-    def __init__(self, fd, iter, borrowed = False):
+    def __init__(self, fd, iter, borrowed = False, usage = None):
         self.iter = iter
         self.is_running = True
         self.recursion = False
         self.exception = None
-        IOHandler.__init__(self, fd, borrowed)
+        IOHandler.__init__(self, fd, borrowed, usage)
 
     def destroy(self):
         self.is_running = False
@@ -192,10 +198,10 @@ class LineOutputHandler(OutputHandler):
 class InputHandler(IOHandler):
     events = select.POLLIN | select.POLLHUP | select.POLLERR
     
-    def __init__(self, fd, borrowed = False):
+    def __init__(self, fd, borrowed = False, usage = None):
         self.buffer = None
         self.eof = False
-        IOHandler.__init__(self, fd, borrowed)
+        IOHandler.__init__(self, fd, borrowed, usage)
 
     def handle_event(self, event):
         if self.buffer is None:
@@ -230,8 +236,8 @@ class InputHandler(IOHandler):
         return args
 
 class LineInputHandler(InputHandler):
-    def __init__(self, fd, borrowed = False):
-        InputHandler.__init__(self, fd, borrowed)
+    def __init__(self, fd, borrowed = False, usage = None):
+        InputHandler.__init__(self, fd, borrowed, usage)
         self.buffer = b""
 
     def handle_event(self, event):
@@ -265,7 +271,7 @@ class SignalManager(IOHandler):
     def __init__(self, mask = [signal.SIGCHLD]):
         self.mask = mask
         self.signal_handlers = {}
-        IOHandler.__init__(self, signalfd.signalfd(-1, mask, signalfd.SFD_CLOEXEC | signalfd.SFD_NONBLOCK))
+        IOHandler.__init__(self, signalfd.signalfd(-1, mask, signalfd.SFD_CLOEXEC | signalfd.SFD_NONBLOCK), usage="SignalManager")
         signalfd.sigprocmask(signalfd.SIG_BLOCK, mask)
 
     def filter_to_key(self, flt):
