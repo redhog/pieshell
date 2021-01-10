@@ -15,6 +15,7 @@ import builtins
 import functools
 
 from .. import iterio
+from .. import redir
 
 class PipelineFailed(Exception):
     def __init__(self, pipeline):
@@ -55,7 +56,7 @@ class RunningItem(object):
         self.iohandler = iohandler
         self.output_content = {}
     def handle_finish(self):
-        for fd, redirect in self.cmd._redirects.redirects.iteritems():
+        for fd, redirect in self.cmd._redirects.redirects.items():
             if not isinstance(redirect.pipe, redir.STRING): continue
             with open(redirect.pipe.path) as f:
                 self.output_content[fd] = f.read()

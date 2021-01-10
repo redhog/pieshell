@@ -34,7 +34,7 @@ class SpecialRedirect(object):
         return "%s(%s)" % (
             type(self),
             ",".join(("%s=%s" % (name, value)
-                      for name, value in self.kws.iteritems())))
+                      for name, value in self.kws.items())))
 
 class PIPE(SpecialRedirect): pass
 class TMP(SpecialRedirect): pass
@@ -47,7 +47,7 @@ def flags_to_string(flags):
 
 class Redirect(object):
     fd_names = {"stdin": 0, "stdout": 1, "stderr": 2}
-    names_to_fd = {value: key for key, value in fd_names.iteritems()}
+    names_to_fd = {value: key for key, value in fd_names.items()}
     fd_flags = {
         0: os.O_RDONLY,
         1: os.O_WRONLY | os.O_CREAT,
@@ -200,7 +200,10 @@ class Redirects(object):
         for redirect in self.redirects.values():
             redirect.close_source_fd()
     def __getattr__(self, name):
-        return self.redirects[Redirect.fd_names[name]]
+        try:
+            return self.redirects[Redirect.fd_names[name]]
+        except KeyError:
+            raise AttributeError(name)
     def __repr__(self):
         redirects = sorted(self.redirects.values(), key = lambda a: a.fd)
         return ", ".join(repr(redirect) for redirect in redirects)
