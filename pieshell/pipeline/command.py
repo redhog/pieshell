@@ -106,6 +106,7 @@ class BaseCommand(base.Pipeline):
 
     def _arg_list(self, redirects = None, sess = None, indentation = ""):
         orig_redirects = redir.Redirects(redirects)
+        orig_redirects.borrow()
         def handle_arg_pipes(item):
             if isinstance(item, str):
                 return item
@@ -193,6 +194,7 @@ class Command(command.BaseCommand):
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
         args = self._arg_list(redirects, sess, indentation)
+        log.log(indentation + "222Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
         pid = os.fork()
         if pid == 0:
