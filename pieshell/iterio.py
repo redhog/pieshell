@@ -159,7 +159,7 @@ class OutputHandler(IOHandler):
         except StopIteration:
             self.destroy()
             return True
-        except Exception, e:
+        except Exception as e:
             self.exception = e
             self.destroy()
             return True
@@ -184,7 +184,7 @@ class LineOutputHandler(OutputHandler):
             log.log("STOP ITERATION %s" % self.fd, "ioevent")
             self.destroy()
             return True
-        except Exception, e:
+        except Exception as e:
             self.exception = e
             self.destroy()
             return True

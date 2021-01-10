@@ -13,7 +13,6 @@ import operator
 import re
 import builtins        
 import functools
-import exceptions
 
 from .. import copy
 from .. import redir
@@ -113,7 +112,7 @@ class Pipeline(DescribableObject):
         pipeline = self.run()
         try:
             pipeline.wait()
-        except KeyboardInterrupt, e:
+        except KeyboardInterrupt as e:
             raise PipelineInterrupted(pipeline)
         return pipeline
 
@@ -138,9 +137,9 @@ class Pipeline(DescribableObject):
         if not self._started and self._env._interactive and getattr(repr_state, "in_repr", 0) < 1:
             try:
                 self.run_interactive()
-            except KeyboardInterrupt, e:
+            except KeyboardInterrupt as e:
                 log.log("Canceled:\n%s" % (e,), "error")
-            except Exception, e:
+            except Exception as e:
                 log.log("Error:\n%s" % (e,), "error")
                 sys.last_traceback = sys.exc_info()[2]
                 import pdb

@@ -178,7 +178,7 @@ class Command(command.BaseCommand):
         fd = redirects.find_free_fd()
         redirects.redirect(
             fd,
-            getattr(arg_pipe[-1].redirects, direction).pipe,
+            getattr(thing._redirects, direction).pipe,
             {"stdin": os.O_WRONLY, "stdout": os.O_RDONLY}[direction])
 
         self._running_processes.extend(arg_pipe)

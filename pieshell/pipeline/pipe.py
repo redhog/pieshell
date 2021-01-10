@@ -24,6 +24,8 @@ from . import command
 from . import function
 from . import builtins
 
+class ITERPIPE(redir.PIPE): pass
+
 class Pipe(base.Pipeline):
     """Pipes the standard out of a source pipeline into the standard
     in of a destination pipeline."""
@@ -38,13 +40,18 @@ class Pipe(base.Pipeline):
     def _run(self, redirects, sess, indentation = ""):
         base.Pipeline._run(self, redirects, sess, indentation)
 
+        child_redirects = redir.Redirects(redirects)
+        child_redirects.borrow()
+
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
-        src = self.src._run(redir.Redirects(redirects).redirect("stdout", redir.PIPE), sess, indentation + "  ")
-        dst = self.dst._run(redir.Redirects(redirects).redirect("stdin", src[-1].redirects.stdout.pipe), sess, indentation + "  ")
+        src = self.src._run(redir.Redirects(child_redirects).redirect("stdout", ITERPIPE), sess, indentation + "  ")
+        dst = self.dst._run(redir.Redirects(child_redirects).redirect("stdin", self.src._redirects.stdout.pipe), sess, indentation + "  ")
 
         self._redirects = self.src._redirects.merge(self.dst._redirects)
         self._redirects.register(redir.Redirect(self.src._redirects.stdin))
         self._redirects.register(redir.Redirect(self.dst._redirects.stdout))
+
+        redirects.close_source_fds()
 
         return src + dst
     def __dir__(self):

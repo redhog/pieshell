@@ -17,7 +17,7 @@ import functools
 from .. import iterio
 from .. import redir
 
-class PipelineError(exceptions.BaseException):
+class PipelineError(Exception):
     description = "Pipeline"
     def __init__(self, pipeline):
         self.pipeline = pipeline
@@ -84,8 +84,15 @@ class RunningFunction(RunningItem):
     @property
     def is_failed(self):
         return self.iohandler.exception is not None
-    def __repr__(self):
-        return '%s(%s)' % (self.cmd._function_name(), ",".join(self.iohandler._repr_args()))
+    def __repr__(self, display_output=False):
+        status = list(self.iohandler._repr_args())
+        if self.iohandler.exception is not None:
+            status.append(str(self.iohandler.exception))
+        if status:
+            status = ' (' + ', '.join(status) + ')'
+        else:
+            status = ''
+        return '%s%s' % (self.cmd._function_name(), status)
 
 class RunningProcess(RunningItem):
     class ProcessSignalHandler(iterio.ProcessSignalHandler):

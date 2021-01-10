@@ -71,12 +71,15 @@ class Redirect(object):
     def __deepcopy__(self, memo = {}):
         return type(self)(self.fd, copy.deepcopy(self.source), self.flag, self.mode, self.pipe, self.borrowed)
 
-    def open(self):
+    def open(self, borrow = True):
         source = self.source
         if not isinstance(source, int):
             log.log("Opening %s in %s for %s" % (self.source, self.flag, self.fd), "fd")
             source = os.open(source, self.flag, self.mode)
             log.log("Done opening %s in %s for %s" % (self.source, self.flag, self.fd), "fd")
+        elif not borrow:
+            log.log("Opening %s for %s" % (self.source, self.fd), "fd")
+            source = os.dup(source)
         return source
     def close_source_fd(self):
         # FIXME: Only close source fds that come from pipes instead of this hack...
@@ -142,12 +145,12 @@ class Redirects(object):
         self.redirects = {}
         for redirect in redirects:
             if isinstance(redirect, Redirects):
-                for item in redirect.redirects.itervalues():
+                for item in redirect.redirects.values():
                     self.register(Redirect(item))
             else:
                 self.register(Redirect(redirect))
     def borrow(self):
-        for redirect in self.redirects.itervalues():
+        for redirect in self.redirects.values():
             redirect.borrow()
     def register(self, redirect):
         if isinstance(redirect, Redirects):
@@ -165,9 +168,7 @@ class Redirects(object):
         self.register(Redirect(*arg, **kw))
         return self
     def merge(self, other):
-        self = Redirects(self)
-        self.register(other)
-        return self
+        return Redirects(self, other)
     def find_free_fd(self):
         return max([redirect.fd
                     for redirect in self.redirects.values()]
