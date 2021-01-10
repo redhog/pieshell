@@ -1,0 +1,9 @@
+def testfn(stdin):
+    yield "Start"
+    for line in stdin:
+        if line is None:
+            yield; continue
+        yield "Read >%s<" % line
+    yield "End"
+
+output = list(bash("argpipe_pipeline.sh", testfn))
