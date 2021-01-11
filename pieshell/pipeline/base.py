@@ -113,7 +113,7 @@ class Pipeline(DescribableObject):
         try:
             pipeline.wait()
         except KeyboardInterrupt as e:
-            raise PipelineInterrupted(pipeline)
+            raise running.PipelineInterrupted(pipeline)
         return pipeline
 
     def __iter__(self):
