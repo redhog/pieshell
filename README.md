@@ -18,7 +18,7 @@ It can be used in two major ways:
     commands](#interfacing-between-python-functions-and-shell-commands)
   * [Environment variables](#environment-variables)
   * [Argument expansion](#argument-expansion)
-  * [Processes](processes)
+  * [Processes](#processes)
   * [Error handling](#error-handling)
   * [Bashsource](#bashsource)
 * [As a python module](#as-a-python-module)
