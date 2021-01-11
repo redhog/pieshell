@@ -38,13 +38,13 @@ class Environment(object):
     def __init__(self, cwd = None, exports = None, interactive = False, redirects = None):
         """Creates a new environment from scratch. Takes the same
         arguments as __call__."""
-        self._cwd = os.getcwd()
-        if cwd is not None:
-            self._cd(cwd)
         self._exports = exports
         self._interactive = interactive
         self._bashfunctions = {}
         self._scope = None
+        self._cwd = os.getcwd()
+        if cwd is not None:
+            self._cd(cwd)
         if redirects is None:
             redirects = redir.Redirects()
             redirects.redirect(0, 0, borrowed=True)
