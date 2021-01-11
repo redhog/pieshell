@@ -49,6 +49,7 @@ class Pipeline(DescribableObject):
     def __init__(self, env):
         self._env = env
         self._started = False
+        self.__module__ = None
     def __deepcopy__(self, memo = {}):
         return type(self)(self._env)
     def _coerce(self, thing, direction):
