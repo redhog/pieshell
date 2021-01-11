@@ -15,7 +15,7 @@ with open(os.path.join(os.path.dirname(__file__), "pieshell", "version.py"), "w"
     
 setup(
     name = "pieshell",
-    description = "Pieshell is a Python shell environment that combines the expressiveness of shell pipelines with the prower of python iterators. It can be used both as an interactive shell and as an ordinary python module replacing e.g. subprocess.Popen",
+    description = "Pieshell is a Python shell environment that combines the expressiveness of shell pipelines with the power of python iterators. It can be used both as an interactive shell and as an ordinary python module replacing e.g. subprocess.Popen",
     long_description_content_type = "text/markdown",
     long_description = README,
     keywords = "Python shell pipelines suprocess",

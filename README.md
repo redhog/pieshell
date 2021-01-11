@@ -1,7 +1,7 @@
 # About
 
 Pieshell is a Python shell environment that combines the
-expressiveness of shell pipelines with the prower of python iterators.
+expressiveness of shell pipelines with the power of python iterators.
 
 It can be used in two major ways:
 
@@ -213,7 +213,7 @@ dictionary.
 ## Argument expansion
 
 All parameter strings in commands are subject to expansion unless
-wrapped in a call to R(), e.g. R("my * string * here")ñ.
+wrapped in a call to R(), e.g. R("my * string * here").
 
   * "~" and "~username" are expanded using os.path.expanduser()
 
