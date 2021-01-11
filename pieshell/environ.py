@@ -75,6 +75,8 @@ class Environment(object):
         scope = self._scope or self._exports
         arg = arg % scope
         arg = os.path.expanduser(arg)
+        if ("*" not in arg) and ("?" not in arg) and ("[" not in arg):
+            return [arg]
         res = glob.glob(self._expand_path(arg))
         if not res: return [arg]
         if self._cwd != "/":
