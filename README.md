@@ -12,7 +12,7 @@ It can be used in two major ways:
 
 * [As a shell](#as-a-shell)
   * [Executing basic commands](#executing-basic-commands)
-  * [Full syntsax for command lines](#full-syntsax-for-command-lines)
+  * [Full syntax for command lines](#full-syntax-for-command-lines)
   * [Redirects](#redirects)
   * [Interfacing between python functions and shell
     commands](#interfacing-between-python-functions-and-shell-commands)
@@ -68,7 +68,7 @@ Changing directory is done using the command cd:
     140:/home/redhog/Projects/beta/pieshell >>> cd("..")
     140:/home/redhog/Projects/beta >>> 
 
-## Full syntsax for command lines
+## Full syntax for command lines
 
 To execute commands that require a path, for example ones in the
 current directory, or commands with a dot in their names
