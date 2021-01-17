@@ -46,6 +46,19 @@ def flags_to_string(flags):
                      if name.startswith("O_") and flags & getattr(os, name)])
 
 class Redirect(object):
+    """Represents an input or output redirection
+    fd - file descriptor to be redirected
+    source - what to redirect to:
+      int - filedescriptor
+      str - a file path
+      PIPE - a pipe
+      TMP - a temporary file (like str, but a path will be generated on the fly)
+      STRING - like TMP, but make the content of the file available as RunningItem.output_content
+    flag - same interpretation as for os.open
+    mode - same interpretation as for os.open
+    pipe - the fd of the other end of the pipe pointed to by source, if any
+    borrow - do not close source fd
+    """
     fd_names = {"stdin": 0, "stdout": 1, "stderr": 2}
     names_to_fd = {value: key for key, value in fd_names.items()}
     fd_flags = {
