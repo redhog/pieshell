@@ -21,7 +21,6 @@ from .. import log
 from . import running
 from . import base
 from . import command
-from . import pipe
 
 class Function(base.Pipeline):
     """Encapsulates a function or iterator so that it can be used
@@ -67,14 +66,6 @@ class Function(base.Pipeline):
     def _run(self, redirects, sess, indentation = ""):
         base.Pipeline._run(self, redirects, sess, indentation)
         
-        output_iterpipe = None
-        if (    isinstance(redirects.stdout.source, type)
-            and issubclass(redirects.stdout.source, pipe.ITERPIPE)):
-            output_iterpipe = redirects.stdout.source
-
-        if output_iterpipe:
-            redirects.redirect("stdout")
-
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
@@ -90,31 +81,20 @@ class Function(base.Pipeline):
 
         thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, (types.FunctionType, types.MethodType)):
-            if isinstance(redirects.stdin.source, pipe.ITERPIPE):
-                thing = thing(redirects.stdin.source.iter, *self._arg, **self._kw)
-            else:
-                thing = thing(
-                    iterio.LineInputHandler(redirects.stdin.open(False), usage=self),
-                    *self._arg, **self._kw)
+            thing = thing(
+                iterio.LineInputHandler(redirects.stdin.open(False), usage=self),
+                *self._arg, **self._kw)
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
 
-        if output_iterpipe:
-            self._running_processes = []
-            self._redirects = redirects
-            self._redirects.redirect(
-                "stdout",
-                source=output_iterpipe,
-                pipe=output_iterpipe(iter=thing))
-        else:
-            self._running_process = running.RunningFunction(
-                self,
-                iterio.LineOutputHandler(
-                    redirects.stdout.open(False),
-                    (convert(x) for x in thing),
-                    usage=self))
-            self._running_processes = [self._running_process]
-            self._redirects = self._running_process.redirects = redirects
+        self._running_process = running.RunningFunction(
+            self,
+            iterio.LineOutputHandler(
+                redirects.stdout.open(False),
+                (convert(x) for x in thing),
+                usage=self))
+        self._running_processes = [self._running_process]
+        self._redirects = self._running_process.redirects = redirects
 
         redirects.close_source_fds()
 

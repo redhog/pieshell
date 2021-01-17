@@ -198,7 +198,7 @@ class Redirects(object):
             log.log(traceback.format_exc(), "fd")
     def close_other_fds(self):
         # FIXME: Use os.closerange if available
-        for i in xrange(0, MAXFD):
+        for i in range(0, MAXFD):
             if i in self.redirects: continue
             if i == log.logfd: continue
             try:
