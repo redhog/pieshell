@@ -124,13 +124,13 @@ class RunningProcess(RunningItem):
             self.process = process
             iterio.ProcessSignalHandler.__init__(self, pid)
         def handle_event(self, event):
-            res = iterio.ProcessSignalHandler.handle_event(self, event)
             if not self.is_running:
                 self.process.handle_finish()
             if event["ssi_signo"] == signal.SIGCHLD and event["ssi_code"] == iterio.CLD_STOPPED:
                 self.process.running_pipeline.pipeline_suspended = True
                 return True
-            return res
+            else:
+                return iterio.ProcessSignalHandler.handle_event(self, event)
     def __init__(self, cmd, pid):
         RunningItem.__init__(self, cmd, self.ProcessSignalHandler(self, pid))
     def restart(self):
