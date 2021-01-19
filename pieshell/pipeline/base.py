@@ -140,6 +140,10 @@ class Pipeline(DescribableObject):
                 self.run_interactive()
             except KeyboardInterrupt as e:
                 log.log("Canceled:\n%s" % (e,), "error")
+            except running.PipelineInterrupted as e:
+                log.log("Canceled:\n%s" % (e,), "error")
+            except running.PipelineSuspended as e:
+                log.log("Suspended:\n%s" % (e,), "error")
             except Exception as e:
                 log.log("Error:\n%s" % (e,), "error")
                 sys.last_traceback = sys.exc_info()[2]
