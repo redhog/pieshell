@@ -227,4 +227,4 @@ class Command(command.BaseCommand):
 
     @property
     def __doc__(self):
-        return b"\n".join(self("--help")).decode("utf-8")
+        return "\n".join(self("--help"))
