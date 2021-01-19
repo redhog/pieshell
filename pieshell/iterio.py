@@ -274,7 +274,7 @@ ALL_SIGNALS = set(getattr(signal, name) for name in dir(signal) if name.startswi
 class SignalManager(IOHandler):
     events = select.POLLIN
     
-    def __init__(self, mask = [signal.SIGCHLD]):
+    def __init__(self, mask = [signal.SIGCHLD, signal.SIGTSTP]):
         self.mask = mask
         self.signal_handlers = {}
         IOHandler.__init__(self, signalfd.signalfd(-1, mask, signalfd.SFD_CLOEXEC | signalfd.SFD_NONBLOCK), usage="SignalManager")

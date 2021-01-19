@@ -31,20 +31,32 @@ class PipelineError(Exception):
 
 class PipelineFailed(PipelineError, Exception): description = "Pipeline failed"
 class PipelineInterrupted(PipelineError, KeyboardInterrupt): description = "Pipeline canceled"
+class PipelineSuspended(PipelineError): description = "Pipeline suspended"
 
 class RunningPipeline(object):
     def __init__(self, processes, pipeline):
         self.processes = processes
         self.pipeline = pipeline
+        self.pipeline_suspended = False
+        for process in processes:
+            process.running_pipeline = self
     def __iter__(self):
         def handle_input():
             for line in iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe, usage=self):
                 yield line
             self.wait()
         return iter(handle_input())
+    def restart(self):
+        self.pipeline_suspended = False
+        for process in self.processes:
+            process.restart()
     def wait(self):
-        while functools.reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
+        self.restart()
+        # FIXME: Wake up all children here
+        while not self.pipeline_suspended and functools.reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
             iterio.get_io_manager().handle_io()
+        if self.pipeline_suspended:
+            raise PipelineSuspended(self)
         if self.failed_processes:
             raise PipelineFailed(self)
     @property
@@ -87,6 +99,8 @@ class RunningItem(object):
             os.unlink(redirect.pipe.path)        
         for fd, name in self.output_files.items():
             os.unlink(name)
+    def restart(self):
+        pass
     def __getattr__(self, name):
         return getattr(self.iohandler, name)
 
@@ -110,12 +124,17 @@ class RunningProcess(RunningItem):
             self.process = process
             iterio.ProcessSignalHandler.__init__(self, pid)
         def handle_event(self, event):
-            res = iterio.ProcessSignalHandler.handle_event(self, event)
             if not self.is_running:
                 self.process.handle_finish()
-            return res
+            if event["ssi_signo"] == signal.SIGCHLD and event["ssi_code"] == iterio.CLD_STOPPED:
+                self.process.running_pipeline.pipeline_suspended = True
+                return True
+            else:
+                return iterio.ProcessSignalHandler.handle_event(self, event)
     def __init__(self, cmd, pid):
         RunningItem.__init__(self, cmd, self.ProcessSignalHandler(self, pid))
+    def restart(self):
+        os.kill(self.iohandler.pid, signal.SIGCONT)
     @property
     def is_failed(self):
         return self.iohandler.last_event["ssi_status"] != 0
