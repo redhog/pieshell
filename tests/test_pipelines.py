@@ -33,3 +33,8 @@ class TestPipelines(unittest.TestCase):
         import bashsource_pipeline
         #self.assertIn('xxx ()', bashsource_pipeline.env._exports["bash_functions"])
         self.assertIn('yyy', bashsource_pipeline.env._exports)
+
+    def test_string_parallel(self):
+        list(pieshell.env.cat(pieshell.env.ls, pieshell.env.ls))
+        
+        

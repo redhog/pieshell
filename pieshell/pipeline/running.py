@@ -71,7 +71,6 @@ class RunningItem(object):
             if not isinstance(redirect.pipe, redir.STRING): continue
             with open(redirect.pipe.path) as f:
                 self.output_content[fd] = f.read()
-            os.unlink(redirect.pipe.path)
     @property
     def output_files(self):
         if self.output_content is not None: return {}
@@ -79,6 +78,13 @@ class RunningItem(object):
                 for fd, redirect in self.cmd._redirects.redirects.items()
                 if isinstance(redirect.pipe, redir.TMP) and not isinstance(redirect.pipe, redir.STRING)}
     def remove_output_files(self):
+        for fd, redirect in self.cmd._redirects.redirects.items():
+            if not isinstance(redirect.pipe, redir.STRING): continue
+            # Yes, reread the STRING pipe, it can have been modified
+            # by another part of the pipeline since we finished.
+            with open(redirect.pipe.path) as f:
+                self.output_content[fd] = f.read()
+            os.unlink(redirect.pipe.path)        
         for fd, name in self.output_files.items():
             os.unlink(name)
     def __getattr__(self, name):
