@@ -69,19 +69,29 @@ def main():
             args.append(arg)
 
     if kws.get("help", False):
-        print("""Usages:
+        print("""Usage:
 
-pieshell
-pieshell FILE.pysh
-pieshell --cmd='any valid pieshell command or python statement'
-pieshell --test
-pieshell --help
-pieshell --version
-pieshell --ptpython
+pieshell [OPTIONS] [ACTION]
+
+Where ACTION is any of
+  --help
+    Show this help
+  --version
+    Show version information
+  FILE.pysh
+    Execute the given file
+  --cmd='any valid pieshell command or python statement'
+    Execute the commandline or python statement
+  --test
+    Run some tests
+
+Where OPTIONS are any of
+  --ptpython
     Fancy editing environment based on ptpython (pip install ptpython)
-pieshell --log=NAME,NAME,NAME
-
-
+  --log=NAME,NAME,NAME
+    Turn on logging of classes of events
+  --no-startup
+    Do not run ~/.config/pieshell at startup
 """)
     elif kws.get("version", False):
         print(version.version)
@@ -95,7 +105,9 @@ pieshell --log=NAME,NAME,NAME
         with environ.envScope:
             environ.envScope["args"] = args
             environ.envScope["kws"] = kws
-            environ.envScope.execute_startup()
+
+            if not kws.get("no-startup", False):
+                environ.envScope.execute_startup()
 
             if "cmd" in kws:
                 environ.envScope.execute_expr(kws["cmd"])
