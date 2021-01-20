@@ -130,7 +130,7 @@ class Pipeline(DescribableObject):
         return bytes(self).decode("utf-8")
     def __bytes__(self):
         """Runs the pipeline and returns its standrad out output as a string"""
-        return "\n".join(iter(self.run([redir.Redirect("stdout", redir.PIPE)])))
+        return b"".join(self.run([redir.Redirect("stdout", redir.PIPE)]).iterbytes())
     def __invert__(self):
         """Start a pipeline in the background"""
         return self.run()

@@ -4,9 +4,6 @@ if True:
     import getpass
     import socket
 
-    # Make the default repr() in the shell operate as expected on pipelines
-    repr = pipeline.Pipeline.repr
-
     # Load environment variables from bash
     for decl in bash("-l", "-i", "-c", "declare -x"):
         if "=" not in decl: continue
@@ -15,12 +12,12 @@ if True:
 
     # If we're in a git repo directory: Calculate the current branch and status
     def parse_git_branch(env):
-        ref = unicode(env.git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null"))
+        ref = str(env.git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null")).strip()
         if ref == "":
-            rev = unicode((env.git("rev-parse", "HEAD") | env.sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null"))
+            rev = str((env.git("rev-parse", "HEAD") | env.sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null")).strip()
         if ref == "":
             return ""
-        changes=int(unicode(env.git("status", "--porcelain") | env.wc("-l")))
+        changes=int(str(env.git("status", "--porcelain") | env.wc("-l")))
         if changes > 0:
             changes=" +%s" % changes
         else:
@@ -44,21 +41,19 @@ if True:
 
     prompt_state = threading.local()
 
-    old_prompt = Environment.__repr__
+    old_prompt = Environment.__str__
     def prompt(self):
         if getattr(prompt_state, "in_prompt", False):
             return old_prompt(self)
-        last_pipeline = self.last_pipeline
         prompt_state.in_prompt = True
         try:
             return "%s@%s:%s%s >>> " % (getpass.getuser(), socket.gethostname(), compress_user(self._cwd), parse_git_branch(self))
         finally:
             prompt_state.in_prompt = False
-            self.last_pipeline = last_pipeline
 
-    Environment.__repr__ = prompt
+    Environment.__str__ = prompt
 
-    kws['ptpython'] = True
+    #kws['ptpython'] = True
 
     # import sys
     # if sys.argv[0].startswith('-'):

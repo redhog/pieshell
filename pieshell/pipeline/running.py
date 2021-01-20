@@ -51,6 +51,12 @@ class RunningPipeline(object):
                 yield line
             self.wait()
         return iter(handle_input())
+    def iterbytes(self):
+        def handle_input():
+            for data in iterio.InputHandler(self.pipeline._redirects.stdout.pipe, usage=self):
+                yield data
+            self.wait()
+        return iter(handle_input())
     def restart(self):
         self.pipeline_suspended = False
         for process in self.processes:
@@ -153,7 +159,10 @@ class RunningProcess(RunningItem):
     def __init__(self, cmd, pid):
         RunningItem.__init__(self, cmd, self.ProcessSignalHandler(self, pid))
     def restart(self):
-        os.kill(self.iohandler.pid, signal.SIGCONT)
+        try:
+            os.kill(self.iohandler.pid, signal.SIGCONT)
+        except ProcessLookupError:
+            pass
     @property
     def pid(self):
         return self.iohandler.pid
