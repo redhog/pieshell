@@ -17,6 +17,11 @@ import functools
 from .. import iterio
 from .. import redir
 
+try:
+    import psutil
+except:
+    psutil = None
+
 class PipelineError(Exception):
     description = "Pipeline"
     def __init__(self, pipeline):
@@ -150,6 +155,9 @@ class RunningProcess(RunningItem):
     def restart(self):
         os.kill(self.iohandler.pid, signal.SIGCONT)
     @property
+    def pid(self):
+        return self.iohandler.pid
+    @property
     def is_failed(self):
         return self.exit_code != 0
     @property
@@ -180,3 +188,11 @@ class RunningProcess(RunningItem):
                 fd = redir.Redirect.names_to_fd.get(fd, fd)
                 res += "%s content:\n%s\n" % (fd, value) 
         return res
+    @property
+    def details(self):
+        if psutil is None: return None
+        return psutil.Process(self.pid)
+    def __getattr__(self, name):
+        if psutil is None:
+            raise AttributeError(name)
+        return getattr(self.details, name)

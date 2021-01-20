@@ -269,6 +269,11 @@ function:
   same names and meaning as the members of the signalfd_siginfo
   struct, see "man signalfd" for details.
 
+* If `psutil` is installed, a `psutil.Process()` instance is available
+  as `RunningProcess.details`, and most of its members and methods are
+  available directly as members and methods on the `RunningProcess`
+  instance, e.g. `RunningProcess.environ()`, `RunningProcess.exe()`.
+ 
 ## Job control
 
 A pipeline can be started in the background by appending `&True`, or
