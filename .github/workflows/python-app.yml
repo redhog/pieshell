@@ -24,5 +24,4 @@ jobs:
         python setup.py develop
     - name: Test with nose2
       run: |
-        pieshell --cmd="print(ls)"
-        # nose2 -s tests
+        nose2 -v -s tests

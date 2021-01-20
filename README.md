@@ -1,3 +1,5 @@
+![Python application](https://github.com/redhog/pieshell/workflows/Python%20application/badge.svg)
+
 # About
 
 Pieshell is a Python shell environment that combines the
