@@ -376,7 +376,7 @@ def get_sigchlds():
         while True:
             (pid, status) = os.waitpid(-1, os.WUNTRACED | os.WCONTINUED | os.WNOHANG)
             if pid == 0:
-                raise StopIteration()
+                return
 
             res = {
                 "ssi_signo": 0,   # Signal number
@@ -417,7 +417,7 @@ def get_sigchlds():
 
             yield res
     except OSError:
-        raise StopIteration()
+        return
 
 class SignalHandler(object):
     def __init__(self, filter):
