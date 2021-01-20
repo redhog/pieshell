@@ -137,7 +137,10 @@ class RunningProcess(RunningItem):
         os.kill(self.iohandler.pid, signal.SIGCONT)
     @property
     def is_failed(self):
-        return self.iohandler.last_event["ssi_status"] != 0
+        return self.exit_code != 0
+    @property
+    def exit_code(self):
+        return self.iohandler.last_event["ssi_status"]
     def __repr__(self, display_output=False):
         status = []
         last_event = self.iohandler.last_event
