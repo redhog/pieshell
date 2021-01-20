@@ -3,6 +3,7 @@ import sys
 import traceback
 import glob
 import code
+import contextlib
 
 from . import pipeline
 from . import redir
@@ -164,7 +165,14 @@ class Environment(object):
             self._dir_cache.extend(pipeline.BuiltinRegistry.builtins.keys())
             self._dir_cache.sort()
         return self._dir_cache
-
+    @contextlib.contextmanager
+    def temporary_env(self, env):
+        self._scope["env"] = env
+        try:
+            yield
+        finally:
+            self._scope["env"] = self
+            
 env = Environment()
 
 class EnvScope(dict):
@@ -233,5 +241,5 @@ class EnvScope(dict):
 
     def __exit__(self, *args, **kw):
         sys.ps1 = self.ps1
-
+    
 envScope = EnvScope(env = env(interactive=True))

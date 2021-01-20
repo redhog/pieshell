@@ -13,12 +13,13 @@ for decl in bash("-l", "-i", "-c", "declare -x"):
 # If we're in a git repo directory: Calculate the current branch and status
 def parse_git_branch(env):
     try:
-        ref = str(env.git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null")).strip()
-        if ref == "":
-            rev = str((env.git("rev-parse", "HEAD") | env.sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null")).strip()
-        if ref == "":
-            return ""
-        changes=int(str(env.git("status", "--porcelain") | env.wc("-l")))
+        with temporary_env(env):
+            ref = str(git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null")).strip()
+            if ref == "":
+                rev = str((git("rev-parse", "HEAD") | sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null")).strip()
+            if ref == "":
+                return ""
+            changes=int(str(git("status", "--porcelain") | wc("-l")))
     except pieshell.PipelineFailed:
         return ""
     if changes > 0:
