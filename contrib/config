@@ -2,6 +2,7 @@ import os
 import threading
 import getpass
 import socket
+import pieshell
 
 # Load environment variables from bash
 for decl in bash("-l", "-i", "-c", "declare -x"):
@@ -11,12 +12,15 @@ for decl in bash("-l", "-i", "-c", "declare -x"):
 
 # If we're in a git repo directory: Calculate the current branch and status
 def parse_git_branch(env):
-    ref = str(env.git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null")).strip()
-    if ref == "":
-        rev = str((env.git("rev-parse", "HEAD") | env.sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null")).strip()
-    if ref == "":
+    try:
+        ref = str(env.git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null")).strip()
+        if ref == "":
+            rev = str((env.git("rev-parse", "HEAD") | env.sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null")).strip()
+        if ref == "":
+            return ""
+        changes=int(str(env.git("status", "--porcelain") | env.wc("-l")))
+    except pieshell.PipelineFailed:
         return ""
-    changes=int(str(env.git("status", "--porcelain") | env.wc("-l")))
     if changes > 0:
         changes=" +%s" % changes
     else:
