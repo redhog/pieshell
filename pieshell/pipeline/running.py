@@ -64,12 +64,26 @@ class RunningPipeline(object):
         return [proc
                 for proc in self.processes
                 if not proc.is_running and proc.is_failed]
+    @property
+    def running_processes(self):
+        return [proc
+                for proc in self.processes
+                if proc.is_running]
     def remove_output_files(self):
         for proc in self.pipeline.processes:
             proc.remove_output_files()
     def __repr__(self):
         return repr(self.pipeline)
-
+    @property
+    def is_running(self):
+        return not not self.running_processes
+    @property
+    def is_failed(self):
+        return not not self.failed_processes
+    @property
+    def exit_code(self):
+        return self.processes[-1].exit_code
+    
 class RunningItem(object):
     def __init__(self, cmd, iohandler):
         self.cmd = cmd

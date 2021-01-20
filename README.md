@@ -268,6 +268,26 @@ function:
   same names and meaning as the members of the signalfd_siginfo
   struct, see "man signalfd" for details.
 
+## Job control
+
+A pipeline can be started in the background by appending `&True`, or
+`&None` to do the same and also redirect stdout to /dev/null.
+
+`last_pipeline` can be used to access the backgrounded pipeline.
+
+A running pipeline can be stopped by hitting `CTRL-Z`. A stopped
+pipeline can be restarted in the background with any of
+
+    bg
+    bg(last_pipeline)
+    last_pipeline.restart()
+
+or in the foreground with
+
+   fg
+   fg(last_pipeline)
+   last_pipeline.wait()
+
 ## Error handling
 
 When a pipeline fails, e.g. by one of the involved processes exiting
@@ -288,7 +308,7 @@ If you want to catch errors in a script, you can use normal Python
 exception handling:
 
     try:
-    except PipelineFailed, e:
+    except PipelineFailed as e:
         e.pipeline.failed_processes[0].pipeline
 
 ## Bashsource

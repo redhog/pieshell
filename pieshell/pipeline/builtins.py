@@ -40,7 +40,10 @@ class BgBuiltin(builtin.Builtin):
     name = "bg"
 
     def _run(self, redirects, sess, indentation = ""):
-        self._env.last_pipeline.restart()
+        pipeline = self._env.last_pipeline
+        if len(self._arg) > 1:
+            pipeline = self._arg[1]
+        pipeline.restart()
         return []
 builtin.BuiltinRegistry.register(BgBuiltin)
 
@@ -50,7 +53,10 @@ class FgBuiltin(builtin.Builtin):
     name = "fg"
 
     def _run(self, redirects, sess, indentation = ""):
-        self._env.last_pipeline.wait()
+        pipeline = self._env.last_pipeline
+        if len(self._arg) > 1:
+            pipeline = self._arg[1]
+        pipeline.wait()
         return []
 builtin.BuiltinRegistry.register(FgBuiltin)
 
