@@ -80,11 +80,16 @@ class Pipeline(DescribableObject):
         of another pipeline."""
         from . import redirect
         from . import pipe
+        if other is True:
+            return self
         other = self._coerce(other, 'stdout')
         if isinstance(other, redir.Redirects):
             return redirect.CmdRedirect(self._env, self, other)
         else:
             return pipe.Pipe(self._env, self, other)
+    def __and__(self, other):
+        self = self | other
+        return self.run()
     def __gt__(self, file):
         """Redirects the standard out of the pipeline to a file."""
         return self | file
