@@ -11,49 +11,6 @@ from . import version
 #    print line
 
 def main():
-
-    def test():
-        try:
-            e = env
-            print("===={test one}====")
-            for x in e.ls | e.grep(".py$") | e.sed("s+shell+nanan+g"):
-                print(x)
-
-            print("===={test two}====")
-            def somefn():
-                yield "foo bar fien\n"
-                yield "foo naja hehe\n"
-                yield "bar naja fie\n"
-
-            for x in somefn() | e.grep("foo"):
-                print(x)
-
-
-            print("===={test three}====")
-            data = [
-                "foo bar fien\n",
-                "foo naja hehe\n",
-                "bar naja fie\n"
-                ]
-
-            print(list(data | e.grep("foo")))
-
-            # print("===={test four}====")
-
-            # for x in ((e.echo("hejjo") | e.sed("s+o+FLUFF+g"))
-            #            + e.echo("hopp")
-            #          ) | e.sed("s+h+nan+g"):
-            #     print(x)
-
-            print("===={test five}====")
-
-            print(list(env.cat(iter(["foo", "bar", "fie"])) | env.cat()))
-
-        except:
-            import sys, pdb
-            sys.last_traceback = sys.exc_info()[2]
-            pdb.pm()
-
     args = []
     kws = {}
     for arg in sys.argv[1:]:
@@ -82,8 +39,6 @@ Where ACTION is any of
     Execute the given file
   --cmd='any valid pieshell command or python statement'
     Execute the commandline or python statement
-  --test
-    Run some tests
 
 Where OPTIONS are any of
   --ptpython
@@ -95,8 +50,6 @@ Where OPTIONS are any of
 """)
     elif kws.get("version", False):
         print(version.version)
-    elif kws.get("test", False):
-        test()
     else:
         if 'log' in kws:
             for name in kws['log'].split(','):

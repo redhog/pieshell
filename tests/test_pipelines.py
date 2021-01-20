@@ -37,4 +37,37 @@ class TestPipelines(unittest.TestCase):
     def test_string_parallel(self):
         list(pieshell.env.cat(pieshell.env.ls, pieshell.env.ls))
         
-        
+    def test_one(self):
+        e = pieshell.env
+        for x in e.ls | e.grep(".py$") | e.sed("s+shell+nanan+g"):
+            pass
+
+    def test_two(self):
+        e = pieshell.env
+        def somefn():
+            yield "foo bar fien\n"
+            yield "foo naja hehe\n"
+            yield "bar naja fie\n"
+        for x in somefn() | e.grep("foo"):
+            pass
+
+    def test_three(self):
+        e = pieshell.env
+        data = [
+            "foo bar fien\n",
+            "foo naja hehe\n",
+            "bar naja fie\n"
+            ]
+        list(data | e.grep("foo"))
+
+    def disabled_test_four(self):
+        e = pieshell.env
+        for x in ((e.echo("hejjo") | e.sed("s+o+FLUFF+g"))
+                   + e.echo("hopp")
+                 ) | e.sed("s+h+nan+g"):
+            pass
+
+    def test_five(self):
+        e = pieshell.env
+        list(e.cat(iter(["foo", "bar", "fie"])) | e.cat())
+
