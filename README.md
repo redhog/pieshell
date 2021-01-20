@@ -19,6 +19,7 @@ It can be used in two major ways:
   * [Environment variables](#environment-variables)
   * [Argument expansion](#argument-expansion)
   * [Processes](#processes)
+  * [Job control] (#job-control)
   * [Error handling](#error-handling)
   * [Bashsource](#bashsource)
 * [As a python module](#as-a-python-module)
