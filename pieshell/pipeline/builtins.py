@@ -44,6 +44,16 @@ class BgBuiltin(builtin.Builtin):
         return []
 builtin.BuiltinRegistry.register(BgBuiltin)
 
+class FgBuiltin(builtin.Builtin):
+    """Continue running the last pipeline in the background.
+    """
+    name = "fg"
+
+    def _run(self, redirects, sess, indentation = ""):
+        self._env.last_pipeline.wait()
+        return []
+builtin.BuiltinRegistry.register(FgBuiltin)
+
 class ClearDirCacheBuiltin(builtin.Builtin):
     """Clear the tab completion cache
     """
