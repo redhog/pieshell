@@ -62,10 +62,13 @@ class RunningPipeline(object):
         for process in self.processes:
             process.restart()
     def wait(self):
-        self.restart()
-        # FIXME: Wake up all children here
-        while not self.pipeline_suspended and functools.reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
-            iterio.get_io_manager().handle_io()
+        try:
+            self.restart()
+            # FIXME: Wake up all children here
+            while not self.pipeline_suspended and functools.reduce(operator.__or__, (proc.is_running for proc in self.processes), False):
+                iterio.get_io_manager().handle_io()
+        except KeyboardInterrupt as e:
+            raise PipelineInterrupted(self)        
         if self.pipeline_suspended:
             raise PipelineSuspended(self)
         if self.failed_processes:
@@ -149,13 +152,13 @@ class RunningProcess(RunningItem):
             self.process = process
             iterio.ProcessSignalHandler.__init__(self, pid)
         def handle_event(self, event):
+            res = iterio.ProcessSignalHandler.handle_event(self, event)
             if not self.is_running:
                 self.process.handle_finish()
             if event["ssi_signo"] == signal.SIGCHLD and event["ssi_code"] == iterio.CLD_STOPPED:
                 self.process.running_pipeline.pipeline_suspended = True
                 return True
-            else:
-                return iterio.ProcessSignalHandler.handle_event(self, event)
+            return res
     def __init__(self, cmd, pid):
         RunningItem.__init__(self, cmd, self.ProcessSignalHandler(self, pid))
     def restart(self):

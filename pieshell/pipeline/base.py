@@ -116,10 +116,7 @@ class Pipeline(DescribableObject):
 
     def run_interactive(self):
         pipeline = self.run()
-        try:
-            pipeline.wait()
-        except KeyboardInterrupt as e:
-            raise running.PipelineInterrupted(pipeline)
+        pipeline.wait()
         return pipeline
 
     def __iter__(self):
