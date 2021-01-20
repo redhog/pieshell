@@ -12,6 +12,7 @@ It can be used in two major ways:
 
 # Table of contents
 
+* [Installation](#installation)
 * [As a shell](#as-a-shell)
   * [Executing basic commands](#executing-basic-commands)
   * [Full syntax for command lines](#full-syntax-for-command-lines)
@@ -32,6 +33,11 @@ It can be used in two major ways:
 * [External tools](#external-tools)
 * [Unit tests](#unit-tests)
 * [Copyright](#copyright)
+
+
+# Installation
+
+    $ pip install pieshell
 
 
 # As a shell
