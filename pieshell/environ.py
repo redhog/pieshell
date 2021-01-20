@@ -143,6 +143,8 @@ class Environment(object):
         """Sets default redirects."""
         self._redirects.register(self._redirects._coerce(other, 'stdout'))
     def __repr__(self):
+        return "[%s:%s]" % (str(id(self))[:3], self._cwd)
+    def __str__(self):
         """Prints the current prompt"""
         if self._interactive:
             return "%s:%s >>> " % (str(id(self))[:3], self._cwd)

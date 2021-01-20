@@ -149,10 +149,9 @@ class Pipeline(DescribableObject):
             current_env = getattr(Pipeline._print_state, 'env', None)
             Pipeline._print_state.env = self._env
             try:
-                envstr = ''
                 if current_env is not self._env:
-                    envstr = repr(self._env)
-                return "%s%s" % (envstr, self._repr())
+                    return "%s in %s" % (self._repr(), repr(self._env))
+                return self._repr()
             finally:
                 Pipeline._print_state.env = current_env
 
