@@ -28,6 +28,7 @@ It can be used in two major ways:
   * [Pysh modules](#pysh-modules)
 * [Configuration](#configuration)
 * [External tools](#external-tools)
+* [Unit tests](#unit-tests)
 * [Copyright](#copyright)
 
 
@@ -432,6 +433,13 @@ A short list of tools that might be usefull together with this project:
 * [ReRedirect](https://github.com/jerome-pouiller/reredirect) - redirect io for an already running process
 * [Reptyr](https://github.com/nelhage/reptyr) - move a running process to a new controlling terminal
 * [Deptyr](https://github.com/antifuchs/deptyr) - forward output for a new process to another controlling terminal
+
+# Unit tests
+
+To run the unit- and integration tests
+
+    pip install nose2
+    nose2 -s tests
 
 # Copyright
 

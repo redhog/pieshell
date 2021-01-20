@@ -45,11 +45,13 @@ def prompt(self):
     if getattr(prompt_state, "in_prompt", False):
         return old_prompt(self)
     prompt_state.in_prompt = True
+    last_pipeline = self.last_pipeline
     try:
         return "%s@%s:%s%s >>> " % (getpass.getuser(), socket.gethostname(), compress_user(self._cwd), parse_git_branch(self))
     finally:
         prompt_state.in_prompt = False
-
+        self.last_pipeline = last_pipeline
+    
 Environment.__str__ = prompt
 
 #kws['ptpython'] = True
