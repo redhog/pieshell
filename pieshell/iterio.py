@@ -459,7 +459,7 @@ class ProcessSignalHandler(SignalHandler):
             self.is_running = False
             self.destroy()
             return True
-
+        
 # Generate an io-manager, hopefully for the main thread
 # If we don't have one in the main thread, signal handling won't work.
 get_io_manager()
