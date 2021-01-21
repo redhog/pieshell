@@ -7,6 +7,7 @@ import contextlib
 
 from . import pipeline
 from . import redir
+from . import utils
 import pieshell
 
 
@@ -53,6 +54,7 @@ class Environment(object):
             redirects.redirect(2, redir.STRING)
         self._redirects = redirects
         self._clear_dir_cache()
+        self.running_pipelines = utils.LineList()
     @property
     def _exports(self):
         return self._exports_value or os.environ

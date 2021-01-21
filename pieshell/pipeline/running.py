@@ -55,6 +55,9 @@ class RunningPipeline(object):
         self.pipeline_suspended = False
         for process in processes:
             process.running_pipeline = self
+        # Just in case all the processes have already terminated...
+        # They could have been blindingly fast after all :)
+        self.handle_finish()
     def __iter__(self):
         def handle_input():
             for line in iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe, usage=self):
@@ -92,6 +95,13 @@ class RunningPipeline(object):
                 raise PipelineFailed(self)
         finally:
             stop_signal_handler.current_pipeline = None
+    def handle_finish(self):
+        if not self.is_running:
+            self.remove_output_files()
+            self.pipeline._env.running_pipelines.remove(self)
+    def remove_output_files(self):
+        for proc in self.processes:
+            proc.remove_output_files()
     @property
     def failed_processes(self):
         return [proc
@@ -102,9 +112,6 @@ class RunningPipeline(object):
         return [proc
                 for proc in self.processes
                 if proc.is_running]
-    def remove_output_files(self):
-        for proc in self.pipeline.processes:
-            proc.remove_output_files()
     def __repr__(self):
         return repr(self.pipeline)
     @property
@@ -130,6 +137,7 @@ class RunningItem(object):
             if not isinstance(redirect.pipe, redir.STRING): continue
             with open(redirect.pipe.path) as f:
                 self.output_content[fd] = f.read()
+        self.running_pipeline.handle_finish()
     @property
     def output_files(self):
         if self.output_content is not None: return {}

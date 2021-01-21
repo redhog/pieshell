@@ -112,6 +112,7 @@ class Pipeline(DescribableObject):
             processes = self._run(redirects, sess)
         pipeline = running.RunningPipeline(processes, self)
         self._env.last_pipeline = pipeline
+        self._env.running_pipelines.append(pipeline)
         return pipeline
 
     def run_interactive(self):
