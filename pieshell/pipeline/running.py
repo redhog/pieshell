@@ -97,7 +97,10 @@ class RunningPipeline(object):
             stop_signal_handler.current_pipeline = None
     def handle_finish(self):
         if not self.is_running:
-            self.remove_output_files()
+            for proc in self.processes:
+                proc.handle_pipeline_finish()
+            for proc in self.processes:
+                proc.handle_pipeline_finish_destructive()
             self.pipeline._env.running_pipelines.remove(self)
     def remove_output_files(self):
         for proc in self.processes:
@@ -144,14 +147,21 @@ class RunningItem(object):
         return {fd: redirect.pipe
                 for fd, redirect in self.cmd._redirects.redirects.items()
                 if isinstance(redirect.pipe, redir.TMP) and not isinstance(redirect.pipe, redir.STRING)}
-    def remove_output_files(self):
+    def handle_pipeline_finish(self):
         for fd, redirect in self.cmd._redirects.redirects.items():
             if not isinstance(redirect.pipe, redir.STRING): continue
             # Yes, reread the STRING pipe, it can have been modified
             # by another part of the pipeline since we finished.
             with open(redirect.pipe.path) as f:
                 self.output_content[fd] = f.read()
-            os.unlink(redirect.pipe.path)        
+    def handle_pipeline_finish_destructive(self):
+        for fd, redirect in self.cmd._redirects.redirects.items():
+            if not isinstance(redirect.pipe, redir.STRING): continue
+            try:
+                os.unlink(redirect.pipe.path)
+            except FileNotFoundError:
+                pass
+    def remove_output_files(self):
         for fd, name in self.output_files.items():
             os.unlink(name)
     def restart(self):
