@@ -71,3 +71,6 @@ class TestPipelines(unittest.TestCase):
         e = pieshell.env
         list(e.cat(iter(["foo", "bar", "fie"])) | e.cat())
 
+    def test_multi_pipe_input(self):
+        e = pieshell.env
+        list(e.cat(e.ls, e.ls))
