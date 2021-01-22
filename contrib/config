@@ -11,15 +11,14 @@ for decl in bash("-l", "-i", "-c", "declare -x"):
     os.environ[name] = value.strip("\"")
 
 # If we're in a git repo directory: Calculate the current branch and status
-def parse_git_branch(env):
+def parse_git_branch():
     try:
-        with temporary_env(env):
-            ref = str(git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null")).strip()
-            if ref == "":
-                rev = str((git("rev-parse", "HEAD") | sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null")).strip()
-            if ref == "":
-                return ""
-            changes=int(str(git("status", "--porcelain") | wc("-l")))
+        ref = str(git("symbolic-ref", "HEAD") | Redirect("stderr", "/dev/null")).strip()
+        if ref == "":
+            rev = str((git("rev-parse", "HEAD") | sed("-e", "s+^\(.......\).*$+\1+g")) | Redirect("stderr", "/dev/null")).strip()
+        if ref == "":
+            return ""
+        changes=int(str(git("status", "--porcelain") | wc("-l")))
     except pieshell.PipelineFailed:
         return ""
     if changes > 0:
@@ -47,15 +46,16 @@ prompt_state = threading.local()
 
 old_prompt = Environment.__str__
 def prompt(self):
-    if getattr(prompt_state, "in_prompt", False):
-        return old_prompt(self)
-    prompt_state.in_prompt = True
-    last_pipeline = self.last_pipeline
-    try:
-        return "%s@%s:%s%s >>> " % (getpass.getuser(), socket.gethostname(), compress_user(self._cwd), parse_git_branch(self))
-    finally:
-        prompt_state.in_prompt = False
-        self.last_pipeline = last_pipeline
+    with temporary_env(self):
+        if getattr(prompt_state, "in_prompt", False):
+            return old_prompt(self)
+        prompt_state.in_prompt = True
+        last_pipeline = self.last_pipeline
+        try:
+            return "%s@%s:%s%s >>> " % (getpass.getuser(), socket.gethostname(), compress_user(self._cwd), parse_git_branch())
+        finally:
+            prompt_state.in_prompt = False
+            self.last_pipeline = last_pipeline
     
 Environment.__str__ = prompt
 
