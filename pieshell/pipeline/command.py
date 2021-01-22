@@ -105,7 +105,7 @@ class BaseCommand(base.Pipeline):
         return u"%s(%s)%s" % (prefix, ', '.join(args), running_process)
 
     def _arg_list(self, redirects = None, sess = None, indentation = ""):
-        orig_redirects = redir.Redirects(redirects)
+        orig_redirects = redir.Redirects(redirects) if redirects is not None else redir.Redirects()
         orig_redirects.borrow()
         def handle_arg_pipes(item):
             if isinstance(item, str):
