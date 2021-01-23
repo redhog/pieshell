@@ -1,18 +1,25 @@
 import os
 import sys
+import logging
 
-debug = {
-    "all": False,
-    "error": True,
-    "fd": False,
-    "cmd": False,
-    "ioreg": False,
-    "ioevent": False,
-    "io": False,
-    "signalreg": False,
-    "signal": False,
-    "test": False
-    }
+class PieshellLogFDHandler(logging.StreamHandler):
+    def emit(self, record):
+        msg = self.format(record)
+        os.write(logfd, ("%s\n" % (msg,)).encode("utf-8"))
+
+pieshell_log_fd_handler = PieshellLogFDHandler()
+pieshell_log_fd_handler.setFormatter(logging.Formatter("%(process)d:" + logging.BASIC_FORMAT))
+logging.getLogger().addHandler(pieshell_log_fd_handler)
+
+logging.getLogger("error").setLevel(logging.INFO)
+logging.getLogger("io").setLevel(logging.CRITICAL)
+logging.getLogger("ioevent").setLevel(logging.CRITICAL)
+logging.getLogger("ioreg").setLevel(logging.CRITICAL)
+logging.getLogger("fd").setLevel(logging.CRITICAL)
+logging.getLogger("cmd").setLevel(logging.CRITICAL)
+logging.getLogger("signalreg").setLevel(logging.CRITICAL)
+logging.getLogger("signal").setLevel(logging.CRITICAL)
+logging.getLogger("test").setLevel(logging.CRITICAL)
 
 outfd = None
 if hasattr(sys.stdout, "fileno"):
@@ -24,5 +31,4 @@ else:
 logfd = 1023
 os.dup2(outfd, logfd)
 def log(msg, category="misc"):
-    if not debug.get(category, False) and not debug.get("all", False): return
-    os.write(logfd, ("%s: %s\n" % (os.getpid(), msg)).encode("utf-8"))
+    logging.getLogger(category).error(msg)

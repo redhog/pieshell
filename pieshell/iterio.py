@@ -322,10 +322,13 @@ class SignalManager(IOHandler):
                 siginfos = get_sigchlds()
 
             for siginfo in siginfos:
-                if log.debug["signal"]:
-                    log.log("Signal", "signal")
-                    for key, val in siginfo_to_names(siginfo).items():
-                        log.log("    %s: %s" % (key, val), "signal")
+                class SignalFormatter(object):
+                    def __init__(self, siginfo):
+                        self.siginfo = siginfo
+                    def __str__(self):
+                        return "Signal\n%s" % ("".join("    %s: %s\n" % (key, val)
+                                                       for key, val in siginfo_to_names(siginfo).items()),)
+                log.log(SignalFormatter(siginfo), "signal")
 
                 for key, signal_handler in list(self.signal_handlers.items()):
                     if self.match_signal(siginfo, signal_handler.filter):
