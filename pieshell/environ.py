@@ -4,6 +4,7 @@ import traceback
 import glob
 import code
 import contextlib
+import pkg_resources
 
 from . import pipeline
 from . import redir
@@ -221,21 +222,45 @@ class EnvScope(dict):
             return '<%s>' % e
 
     def execute_file(self, filename):
-        with open(filename) as f:
+        if filename.startswith("resource://"):
+            path = filename.split("://")[1]
+            pkg, path = path.split("/", 1)
+            f = pkg_resources.resource_stream(pkg, path)
+        else:
+            f = open(filename)
+        with f as f:
             content = f.read()
         code.InteractiveConsole(locals=self).runsource(content, filename, "exec")
 
     def execute_expr(self, expr):
         exec(expr, self)
 
+    def _copy_resource(self, resource, dst):
+        dstdir = os.path.dirname(dst)
+        if not os.path.exists(dstdir):
+            os.makedirs(dstdir)
+        path = resource.split("://")[1]
+        pkg, path = path.split("/", 1)
+        with pkg_resources.resource_stream(pkg, path) as inf:
+            with open(dst, "wb") as outf:
+                outf.write(inf.read())
+
+        
     def execute_startup(self):
         env = self["env"]
         self.execute_expr("from pieshell import *")
         self["env"] = env
         self.execute_expr("import readline")
         conf = os.path.expanduser('~/.config/pieshell')
-        if os.path.exists(conf):
-            self.execute_file(conf)
+        conf_resource = "resource://pieshell/resources/default_config.pysh"
+        try:
+            if not os.path.exists(conf):
+                self._copy_resource(conf_resource, conf)
+        except PermissionError:
+            self.execute_file(conf_resource)
+        else:
+            if os.path.exists(conf):
+                self.execute_file(conf)
 
     def __enter__(self):
         self.ps1 = getattr(sys, "ps1", None)

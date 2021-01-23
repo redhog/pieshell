@@ -1,1 +1,3 @@
-include *.json
+include **/*.json
+include **/*.md
+include **/*.pysh

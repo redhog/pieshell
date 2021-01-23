@@ -132,9 +132,14 @@ class BashSource(builtin.Builtin):
     name = "bashsource"
 
     def _run(self, redirects, sess, indentation = ""):
+        args = []
+        for arg in self._arg[1:]:
+            for exp in self._env._expand_argument(arg):
+                args.append("source '%s'" % (exp,))
+        args.append("{ declare -x; declare -f; } > $0")
         self._cmd = self._env.bash(
             "-l", "-i", "-c",
-            "source '%s'; { declare -x; declare -f; } > $0" % (self._env._expand_argument(self._arg[1])[0],),
+            "; ".join(args),
             self.parse_decls)
         res = self._cmd._run(redirects, sess, indentation)
         self._pid = self._cmd._pid

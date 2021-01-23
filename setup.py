@@ -26,7 +26,7 @@ setup(
     license = "GPL",
     url = "https://github.com/redhog/pieshell",
     packages = find_packages(),
-    package_data={'pieshell': ['*.md']},
+    package_data={'pieshell': ['*.md', '*.json', '*.pysh']},
     entry_points={
         'console_scripts': [
             'pieshell = pieshell.shell:main',

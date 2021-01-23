@@ -5,10 +5,7 @@ import socket
 import pieshell
 
 # Load environment variables from bash
-for decl in bash("-l", "-i", "-c", "declare -x"):
-    if "=" not in decl: continue
-    name, value = decl[len("declare -x "):].split("=", 1)    
-    os.environ[name] = value.strip("\"")
+bashsource()
 
 # If we're in a git repo directory: Calculate the current branch and status
 def parse_git_branch():

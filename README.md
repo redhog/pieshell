@@ -337,7 +337,14 @@ Pieshell provides a builtin to emulate this functionality, with bash scripts:
     >>> bashsource("myscript.sh")
 
 will run `myscript.sh` in a bash shell followed by `declare -x`. It parses the output of
-`declare -x` and updates `exports` accordingly.
+`declare -x` and updates `exports` accordingly. As a special case
+
+    >>> bashsource()
+
+will do the same, but without running any script first, esentially
+just using whatever variables are set up by your `.bashrc` or
+`.profile`.
+
 
 # As a python module
 
