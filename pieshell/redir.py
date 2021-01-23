@@ -9,7 +9,7 @@ import threading
 
 from .utils import pipe
 from . import log
-from . import copy
+from .utils import copy
 
 try:
     MAXFD = os.sysconf("SC_OPEN_MAX")

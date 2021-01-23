@@ -14,7 +14,7 @@ import re
 import builtins        
 import functools
 
-from .. import copy
+from ..utils import copy
 from .. import redir
 from .. import log
 from . import running
