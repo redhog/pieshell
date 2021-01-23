@@ -1,3 +1,4 @@
 include **/*.json
 include **/*.md
 include **/*.pysh
+include pieshell/resources/get_completions

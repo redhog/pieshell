@@ -32,5 +32,5 @@ setup(
             'pieshell = pieshell.shell:main',
         ],
     },
-    scripts = ["contrib/get_completions"]
+    scripts = ["pieshell/resources/get_completions"]
 )
