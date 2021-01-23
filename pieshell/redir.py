@@ -7,7 +7,7 @@ import uuid
 import code
 import threading
 
-from . import pipe
+from .utils import pipe
 from . import log
 from . import copy
 
