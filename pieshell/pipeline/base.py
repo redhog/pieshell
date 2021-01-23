@@ -97,7 +97,8 @@ class Pipeline(DescribableObject):
         """Redirects the standard in of the pipeline from a file."""
         return file | self
     def __add__(self, other):
-        return Group(self._env, self, other)
+        from . import group
+        return group.Group(self._env, self, other)
 
     def _run(self, redirects, sess, indentation = ""):
         self._started = True
