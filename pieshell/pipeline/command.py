@@ -158,7 +158,6 @@ class Command(command.BaseCommand):
         redirects.perform()
         os.chdir(self._env._cwd)
         os.execvpe(args[0], args, self._env._exports)
-        os._exit(-1)
 
     def _handle_arg_pipes(self, thing, orig_redirects, redirects, sess, indentation):
         from . import function
@@ -206,9 +205,14 @@ class Command(command.BaseCommand):
 
         pid = os.fork()
         if pid == 0:
-            self._child(redirects, args)
+            ecode = -1
+            try:
+                self._child(redirects, args)
+            except Exception as e:
+                sys.stderr.write("Unable to execute %s: %s\n" % (repr(self), e))
+                ecode = getattr(e, "errno", ecode)
             # If we ever get to here, all is lost...
-            sys._exit(-1)
+            os._exit(ecode)
 
         log.log(indentation + "  %s: Command line %s with %s" % (pid, ' '.join(repr(arg) for arg in args), repr(redirects)), "cmd")
 
