@@ -57,6 +57,13 @@ class BaseCommand(base.Pipeline):
     def __deepcopy__(self, memo = {}):
         return type(self)(self._env, copy.deepcopy(self._arg))
 
+    def __sub__(self, other):
+        return self(-other)
+
+    def __neg__(self):
+        assert len(self._arg) == 1, "-a(b) does not make sense syntacticaly"
+        return "-" + self._arg[0]
+    
     def __call__(self, *arg, **kw):
         """Appends a set of arguments to the argument list
 

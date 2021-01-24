@@ -248,9 +248,18 @@ class EnvScope(dict):
         
     def execute_startup(self):
         env = self["env"]
-        self.execute_expr("from pieshell import *")
+        self["R"] = R
+        self["Redirect"] = redir.Redirect
+        self["TMP"] = redir.TMP
+        self["STRING"] = redir.STRING
+        self["PIPE"] = redir.PIPE
+        self["PipelineError"] = pipeline.running.PipelineError
+        self["PipelineInterrupted"] = pipeline.running.PipelineInterrupted
+        self["PipelineSuspended"] = pipeline.running.PipelineSuspended
+        self["pieshell"] = pieshell
+        
+        # self.execute_expr("from pieshell import *")
         self["env"] = env
-        self.execute_expr("import readline")
         conf = os.path.expanduser('~/.config/pieshell')
         conf_resource = "resource://pieshell/resources/default_config.pysh"
         try:

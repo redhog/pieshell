@@ -1,6 +1,7 @@
 import sys
 import os
 import code
+import readline
 
 from . import environ
 from . import log

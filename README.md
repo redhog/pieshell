@@ -103,12 +103,29 @@ Example usage:
 
     git.diff("-U")
 
-In addition to these two generic syntaxes, the function call syntax
-also supports named parameters, which are converted into
-"--name=value" pairs. Note that the order can not be guaranteed as
-named parameters are sent around as dictionaries inside python:
+In addition to these two generic syntaxes, there are two more
+specialized syntaxes for options:
+
+The function call syntax also supports named parameters, which are
+converted into "--name=value" pairs. Note that the order can not be
+guaranteed as named parameters are sent around as dictionaries inside
+python:
 
     git.diff(unified=4)
+
+Short options, like `-U` above do not actually need quotes, and can be
+specified inside or outside the function call syntax:
+
+    git.diff(-U, -w)
+    git.diff-U-w
+
+Notes for programs with wierd parameter syntax, like `find`: `find`
+does not use the standard double minus (`--`) before long options, and
+takes the option value as a separate argument, rather than separating
+the name and value with `=` like most programs. The above special
+syntax for short options actually cover this use case too:
+
+    find(".", -name, "*.py")
 
 ## Redirects
 
