@@ -18,6 +18,7 @@ from ..utils import copy
 from .. import iterio
 from .. import redir
 from .. import log
+from .. import environ
 from . import running
 from . import base
 from . import command
@@ -108,7 +109,7 @@ class BaseCommand(base.Pipeline):
         orig_redirects = redir.Redirects(redirects) if redirects is not None else redir.Redirects()
         orig_redirects.borrow()
         def handle_arg_pipes(item):
-            if isinstance(item, str):
+            if isinstance(item, (str, environ.R)):
                 return item
             elif redirects is not None:
                 return self._handle_arg_pipes(item, orig_redirects, redirects, sess, indentation)
