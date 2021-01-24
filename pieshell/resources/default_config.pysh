@@ -4,6 +4,8 @@ import getpass
 import socket
 import pieshell
 
+
+
 # Load environment variables from bash
 bashsource()
 
@@ -41,7 +43,7 @@ def compress_user(path):
 
 prompt_state = threading.local()
 
-old_prompt = Environment.__str__
+old_prompt = pieshell.Environment.__str__
 def prompt(self):
     with temporary_env(self):
         if getattr(prompt_state, "in_prompt", False):
@@ -54,7 +56,7 @@ def prompt(self):
             prompt_state.in_prompt = False
             self.last_pipeline = last_pipeline
     
-Environment.__str__ = prompt
+pieshell.Environment.__str__ = prompt
 
 #kws['ptpython'] = True
 
