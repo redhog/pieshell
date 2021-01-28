@@ -82,7 +82,7 @@ class Function(base.Pipeline):
         thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, (types.FunctionType, types.MethodType)):
             thing = thing(
-                iterio.LineInputHandler(redirects.stdin.open(False), usage=self),
+                iterio.LineInputHandler(redirects.stdin.open(), usage=self),
                 *self._arg, **self._kw)
         if hasattr(thing, "__iter__"):
             thing = iter(thing)
@@ -90,7 +90,7 @@ class Function(base.Pipeline):
         self._running_process = running.RunningFunction(
             self,
             iterio.LineOutputHandler(
-                redirects.stdout.open(False),
+                redirects.stdout.open(),
                 (convert(x) for x in thing),
                 usage=self))
         self._running_processes = [self._running_process]

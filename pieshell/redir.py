@@ -84,30 +84,18 @@ class Redirect(object):
     def __deepcopy__(self, memo = {}):
         return type(self)(self.fd, copy.deepcopy(self.source), self.flag, self.mode, self.pipe, self.borrowed)
 
-    def open(self, borrow=True):
-        log.log("Opening %s in %s for %s (borrowed=%s)" % (self.source, self.flag, self.fd, self.borrowed), "fd")
-        source = self.source
-        if source in self.fd_names:
-            source = self.fd_names[source]
-        if not isinstance(source, int):
-            source = os.open(source, self.flag, self.mode)
-            log.log("Done opening %s in %s for %s" % (self.source, self.flag, self.fd), "fd")
-        elif not borrow:
-            source = os.dup(source)
-            log.log("Done opening %s in %s for %s" % (self.source, source, self.fd), "fd")
-        return source
+    def open(self):
+        fd = os.dup(self.source)
+        log.log("open: dup(%s) = %s for %s" % (self.source, fd, self.fd), "fd")
+        return fd
     def close_source_fd(self):
         # FIXME: Only close source fds that come from pipes instead of this hack...
         if isinstance(self.source, int) and not self.borrowed:
             log.log("CLOSE SOURCE %s" % (self.source,), "fd")
             os.close(self.source)
     def perform(self):
-        source = self.open()
-        assert source != self.fd
-        log.log("perform dup2(%s, %s)" % (source, self.fd), "fd")
-        os.dup2(source, self.fd)
-        log.log("perform close(%s)" % (source), "fd")
-        os.close(source)
+        log.log("perform dup2(%s, %s)" % (self.source, self.fd), "fd")
+        os.dup2(self.source, self.fd)
     def move(self, fd):
         self = Redirect(self)
         if isinstance(self.source, int):
