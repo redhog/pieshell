@@ -84,9 +84,8 @@ class Redirect(object):
     def __deepcopy__(self, memo = {}):
         return type(self)(self.fd, copy.deepcopy(self.source), self.flag, self.mode, self.pipe, self.borrowed)
 
-    def open(self):
+    def open(self, borrow=True):
         log.log("Opening %s in %s for %s (borrowed=%s)" % (self.source, self.flag, self.fd, self.borrowed), "fd")
-        borrow = True
         source = self.source
         if source in self.fd_names:
             source = self.fd_names[source]
@@ -125,12 +124,21 @@ class Redirect(object):
                 sourcefd, pipefd = wfd, rfd
             else:
                 pipefd, sourcefd = wfd, rfd
+            log.log("make_pipe pipe() = %s(%s%s) for %s" % (sourcefd, "->" if sourcefd == wfd else "<-", pipefd, self.fd), "fd")
             return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
         elif isinstance(self.source, type) and issubclass(self.source, (TMP, STRING)):
             if not (self.flag & os.O_WRONLY):
                 raise Exception("Invalid flag for %s redirect - must be O_WRONLY" % self.source)
             sourcefd, pipefd = tempfile.mkstemp()
+            log.log("make_pipe mkstemp() = %s(%s) for %s" % (sourcefd, pipefd, self.fd), "fd")
             return type(self)(self.fd, sourcefd, self.flag, self.mode, self.source(path=pipefd))
+        elif isinstance(self.source, str):
+            if self.source in self.fd_names:
+                return type(self)(self.fd, self.fd_names[self.source], self.flag, self.mode, borrowed=self.borrowed)
+            else:
+                sourcefd = os.open(self.source, self.flag, self.mode)
+                log.log("make_pipe open(%s) = %s for %s" % (self.source, sourcefd, self.fd), "fd")
+                return type(self)(self.fd, sourcefd, self.flag, self.mode, borrowed=False)
         else:
             return self
 
@@ -148,7 +156,7 @@ class Redirect(object):
             arrow = "-%s->" % flagmode
         else:
             arrow = "<-%s-" % flagmode
-        arrow = "%s %s %s" % (self.fd, arrow, self.source)
+        arrow = "%s %s %s" % (self.fd, arrow, ("(%s)" % self.source) if self.borrowed else self.source)
         if self.borrowed:
             arrow = "(%s)" % arrow
         items = [arrow]
@@ -204,6 +212,7 @@ class Redirects(object):
         log.log("After move: %s" % repr(Redirects(*redirects)), "fd")
         return redirects
     def perform(self):
+        log.log("redirects.perform(%s)" % (self,), "fd")
         try:
             for redirect in self.move_existing_fds():
                 redirect.perform()

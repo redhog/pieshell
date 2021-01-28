@@ -78,7 +78,7 @@ class Function(base.Pipeline):
                 return x.encode("utf-8")
             else:
                 return str(x).encode("utf-8")
-
+        
         thing = self.__dict__["function"] # Don't wrap functions as instance methods
         if isinstance(thing, (types.FunctionType, types.MethodType)):
             thing = thing(
