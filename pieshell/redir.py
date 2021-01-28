@@ -84,15 +84,18 @@ class Redirect(object):
     def __deepcopy__(self, memo = {}):
         return type(self)(self.fd, copy.deepcopy(self.source), self.flag, self.mode, self.pipe, self.borrowed)
 
-    def open(self, borrow = True):
+    def open(self):
+        log.log("Opening %s in %s for %s (borrowed=%s)" % (self.source, self.flag, self.fd, self.borrowed), "fd")
+        borrow = True
         source = self.source
+        if source in self.fd_names:
+            source = self.fd_names[source]
         if not isinstance(source, int):
-            log.log("Opening %s in %s for %s" % (self.source, self.flag, self.fd), "fd")
             source = os.open(source, self.flag, self.mode)
             log.log("Done opening %s in %s for %s" % (self.source, self.flag, self.fd), "fd")
         elif not borrow:
-            log.log("Opening %s for %s" % (self.source, self.fd), "fd")
             source = os.dup(source)
+            log.log("Done opening %s in %s for %s" % (self.source, source, self.fd), "fd")
         return source
     def close_source_fd(self):
         # FIXME: Only close source fds that come from pipes instead of this hack...
