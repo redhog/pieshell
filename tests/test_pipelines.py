@@ -6,6 +6,7 @@ import os
 dir = os.path.dirname(__file__)
 sys.path[0:0] = [dir]
 pieshell.envScope["env"]._cd(dir)
+pieshell.env._cd(dir)
 
 
 class TestPipelines(unittest.TestCase):
@@ -74,3 +75,7 @@ class TestPipelines(unittest.TestCase):
     def test_multi_pipe_input(self):
         e = pieshell.env
         list(e.cat(e.ls, e.ls))
+
+    def test_fd_redir(self):
+        res = list(pieshell.env.bash("test_fd_redir.sh") | pieshell.Redirect("stderr", "stdout", borrowed=True))
+        self.assertEqual(res, ['Hello', 'Erroneous', 'World'])

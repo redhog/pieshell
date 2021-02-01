@@ -7,9 +7,9 @@ import uuid
 import code
 import threading
 
-from .utils import pipe
 from . import log
 from .utils import copy
+from .utils import pipe
 
 try:
     MAXFD = os.sysconf("SC_OPEN_MAX")
@@ -94,11 +94,12 @@ class Redirect(object):
             log.log("CLOSE SOURCE %s" % (self.source,), "fd")
             os.close(self.source)
     def perform(self):
+        if self.source == self.fd: return
         log.log("perform dup2(%s, %s)" % (self.source, self.fd), "fd")
         os.dup2(self.source, self.fd)
     def move(self, fd):
         self = Redirect(self)
-        if isinstance(self.source, int):
+        if not self.borrow:
             log.log("move dup2(%s, %s)" % (self.source, fd), "fd")
             os.dup2(self.source, fd)
             log.log("move close(%s)" % (self.source), "fd")
@@ -107,7 +108,7 @@ class Redirect(object):
         return self
     def make_pipe(self):
         if isinstance(self.source, type) and issubclass(self.source, PIPE):
-            rfd, wfd = pipe.pipe_cloexec()
+            rfd, wfd = pipe.pipe_cloexec(False, False)
             if self.flag & os.O_WRONLY:
                 sourcefd, pipefd = wfd, rfd
             else:

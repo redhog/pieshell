@@ -14,13 +14,13 @@ def _set_cloexec_flag(fd, cloexec=True):
     else:
         fcntl.fcntl(fd, fcntl.F_SETFD, old & ~cloexec_flag)
 
-def pipe_cloexec():
+def pipe_cloexec(rcloexec=True, wcloexec=True):
     """Create a pipe with FDs set CLOEXEC."""
     # Pipes' FDs are set CLOEXEC by default because we don't want them
     # to be inherited by other subprocesses: the CLOEXEC flag is removed
     # from the child's FDs by _dup2(), between fork() and exec().
     # This is not atomic: we would need the pipe2() syscall for that.
     r, w = os.pipe()
-    _set_cloexec_flag(r)
-    _set_cloexec_flag(w)
+    _set_cloexec_flag(r, rcloexec)
+    _set_cloexec_flag(w, wcloexec)
     return r, w
