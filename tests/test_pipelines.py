@@ -83,3 +83,7 @@ class TestPipelines(unittest.TestCase):
     def test_fd_redir_syntax(self):
         res = list(pieshell.env.bash("test_fd_redir.sh") | pieshell.Redirect.stderr >> "stdout")
         self.assertEqual(res, ['Hello', 'Erroneous', 'World'])
+
+    def test_fd_redir_syntax2(self):
+        res = list(pieshell.env.bash("test_fd_redir.sh")["stderr":"stdout"])
+        self.assertEqual(res, ['Hello', 'Erroneous', 'World'])

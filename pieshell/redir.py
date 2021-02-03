@@ -80,13 +80,17 @@ class Redirect(object, metaclass=RedirectMeta):
         1: os.O_WRONLY | os.O_CREAT,
         2: os.O_WRONLY | os.O_CREAT
         }
-    def __init__(self, fd, source = None, flag = None, mode = 0o777, pipe=None, borrowed=False):
+    def __init__(self, fd, source = None, flag = None, mode = 0o777, pipe=None, borrowed=None):
         if isinstance(fd, Redirect):
             fd, source, flag, mode, pipe, borrowed = fd.fd, fd.source, fd.flag, fd.mode, fd.pipe, fd.borrowed
-        if not isinstance(fd, int):
+        if isinstance(fd, str):
             fd = self.fd_names[fd]
+        if isinstance(source, str) and source in self.fd_names:
+            source = self.fd_names[source]
         if flag is None:
             flag = self.fd_flags[fd]
+        if borrowed is None:
+            borrowed = True
         self.fd = fd
         self.source = source
         self.flag = flag
@@ -128,20 +132,17 @@ class Redirect(object, metaclass=RedirectMeta):
             else:
                 pipefd, sourcefd = wfd, rfd
             log.log("make_pipe pipe() = %s(%s%s) for %s" % (sourcefd, "->" if sourcefd == wfd else "<-", pipefd, self.fd), "fd")
-            return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd)
+            return type(self)(self.fd, sourcefd, self.flag, self.mode, pipefd, borrowed=False)
         elif isinstance(self.source, type) and issubclass(self.source, (TMP, STRING)):
             if not (self.flag & os.O_WRONLY):
                 raise Exception("Invalid flag for %s redirect - must be O_WRONLY" % self.source)
             sourcefd, pipefd = tempfile.mkstemp()
             log.log("make_pipe mkstemp() = %s(%s) for %s" % (sourcefd, pipefd, self.fd), "fd")
-            return type(self)(self.fd, sourcefd, self.flag, self.mode, self.source(path=pipefd))
+            return type(self)(self.fd, sourcefd, self.flag, self.mode, self.source(path=pipefd), borrowed=False)
         elif isinstance(self.source, str):
-            if self.source in self.fd_names:
-                return type(self)(self.fd, self.fd_names[self.source], self.flag, self.mode, borrowed=self.borrowed)
-            else:
-                sourcefd = os.open(self.source, self.flag, self.mode)
-                log.log("make_pipe open(%s) = %s for %s" % (self.source, sourcefd, self.fd), "fd")
-                return type(self)(self.fd, sourcefd, self.flag, self.mode, borrowed=False)
+            sourcefd = os.open(self.source, self.flag, self.mode)
+            log.log("make_pipe open(%s) = %s for %s" % (self.source, sourcefd, self.fd), "fd")
+            return type(self)(self.fd, sourcefd, self.flag, self.mode, borrowed=False)
         else:
             return self
 

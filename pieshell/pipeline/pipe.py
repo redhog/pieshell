@@ -43,7 +43,7 @@ class Pipe(base.Pipeline):
 
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
         src = self.src._run(redir.Redirects(child_redirects).redirect("stdout", redir.PIPE), sess, indentation + "  ")
-        dst = self.dst._run(redir.Redirects(child_redirects).redirect("stdin", self.src._redirects.stdout.pipe), sess, indentation + "  ")
+        dst = self.dst._run(redir.Redirects(child_redirects).redirect("stdin", self.src._redirects.stdout.pipe, borrowed=False), sess, indentation + "  ")
 
         self._redirects = self.src._redirects.merge(self.dst._redirects)
         self._redirects.register(redir.Redirect(self.src._redirects.stdin))

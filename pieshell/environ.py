@@ -52,7 +52,7 @@ class Environment(object):
             redirects = redir.Redirects()
             redirects.redirect(0, 0, borrowed=True)
             redirects.redirect(1, 1, borrowed=True)
-            redirects.redirect(2, redir.STRING)
+            redirects.redirect(2, redir.STRING, borrowed=False)
         self._redirects = redirects
         self._clear_dir_cache()
         self.running_pipelines = utils.LineList()

@@ -186,7 +186,8 @@ class Command(command.BaseCommand):
         redirects.redirect(
             fd,
             getattr(thing._redirects, direction).pipe,
-            {"stdin": os.O_WRONLY, "stdout": os.O_RDONLY}[direction])
+            {"stdin": os.O_WRONLY, "stdout": os.O_RDONLY}[direction],
+            borrowed=False)
 
         self._running_processes.extend(arg_pipe)
 
