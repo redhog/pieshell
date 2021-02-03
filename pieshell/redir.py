@@ -45,7 +45,21 @@ def flags_to_string(flags):
                      for name in dir(os)
                      if name.startswith("O_") and flags & getattr(os, name)])
 
-class Redirect(object):
+class RedirectFd(object):
+    def __init__(self, fd):
+        self.fd = fd
+    def __lshift__(self, other):
+        return Redirect(self.fd, other, os.O_RDONLY)
+    def __rshift__(self, other):
+        return Redirect(self.fd, other, os.O_WRONLY | os.O_CREAT)
+
+class RedirectMeta(type):
+    def __getitem__(self, fd):
+        return RedirectFd(fd)
+    def __getattr__(self, fd):
+        return RedirectFd(fd)
+    
+class Redirect(object, metaclass=RedirectMeta):
     """Represents an input or output redirection
     fd - file descriptor to be redirected
     source - what to redirect to:
