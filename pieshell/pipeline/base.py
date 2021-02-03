@@ -99,7 +99,16 @@ class Pipeline(DescribableObject):
     def __add__(self, other):
         from . import group
         return group.Group(self._env, self, other)
-
+    def __getitem__(self, *args):
+        for arg in args:
+            if isinstance(arg, slice):
+                if arg.step is not None:
+                    self = self | redir.Redirect[arg.start] << arg.step
+                else:
+                    self = self | redir.Redirect[arg.start] >> arg.stop
+            else:
+                self = self | arg
+        return self
     def _run(self, redirects, sess, indentation = ""):
         self._started = True
 
