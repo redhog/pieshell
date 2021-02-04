@@ -87,6 +87,13 @@ class Redirect(object, metaclass=RedirectMeta):
             fd = self.fd_names[fd]
         if isinstance(source, str) and source in self.fd_names:
             source = self.fd_names[source]
+        if hasattr(source, "fileno"):
+            if flag is None:
+                flag = 0
+                if source.readable(): flag = flag | os.O_RDONLY
+                if source.writable(): flag = flag | os.O_WRONLY
+            if borrowed is None:
+                borrowed = True
         if flag is None:
             flag = self.fd_flags[fd]
         if borrowed is None:
@@ -143,6 +150,10 @@ class Redirect(object, metaclass=RedirectMeta):
             sourcefd = os.open(self.source, self.flag, self.mode)
             log.log("make_pipe open(%s) = %s for %s" % (self.source, sourcefd, self.fd), "fd")
             return type(self)(self.fd, sourcefd, self.flag, self.mode, borrowed=False)
+        elif hasattr(self.source, "fileno"):
+            sourcefd = self.source.fileno()
+            log.log("make_pipe %s.fileno() = %s for %s" % (self.source, sourcefd, self.fd), "fd")
+            return type(self)(self.fd, sourcefd, self.flag, self.mode, borrowed=self.borrowed)
         else:
             return self
 
