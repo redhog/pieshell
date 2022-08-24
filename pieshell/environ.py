@@ -118,7 +118,7 @@ class Environment(object):
             redirects = self._redirects
         res = type(self)(cwd = self._cwd, exports = exports, interactive = interactive, redirects = redirects)
         if cwd is not None:
-            res.cd(cwd)
+            res._cd(cwd)
         return res
     def __getitem__(self, name):
         """env[path] is equivalent to env(path)"""

@@ -101,7 +101,8 @@ class RunningPipeline(object):
                 proc.handle_pipeline_finish()
             for proc in self.processes:
                 proc.handle_pipeline_finish_destructive()
-            self.pipeline._env.running_pipelines.remove(self)
+            if self in self.pipeline._env.running_pipelines:
+                self.pipeline._env.running_pipelines.remove(self)
     def remove_output_files(self):
         for proc in self.processes:
             proc.remove_output_files()
