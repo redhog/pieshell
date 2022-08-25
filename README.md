@@ -382,6 +382,15 @@ Commands are also not run with standard out to the screen when simply
 printed using the repr() function but must instead be used as
 iterators as is done above using the list() function.
 
+A pipeline can be run in the background (with input/output to the screen) using
+
+    >>>> status = ~(env.ls("-a") | env.grep("-e", "io"))
+
+or in the forground (waiting until it exists)
+
+    >>>> status = +(env.ls("-a") | env.grep("-e", "io"))
+
+
 The env object holds the current working directory, which can be changed with
 
     >>> env.cd("..")    

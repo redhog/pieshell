@@ -121,6 +121,9 @@ class Pipeline(DescribableObject):
         pipeline.wait()
         return pipeline
 
+    def __pos__(self):
+        return self.run_interactive()
+    
     def __iter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
         return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
