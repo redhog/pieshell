@@ -29,6 +29,7 @@ It can be used in two major ways:
   * [Environment variables](#environment-variables-1)
   * [Argument expansion](#argument-expansion-1)
   * [Pysh modules](#pysh-modules)
+  * [Eval and exec](#eval-and-exec)
 * [Configuration](#configuration)
 * [External tools](#external-tools)
 * [Unit tests](#unit-tests)
