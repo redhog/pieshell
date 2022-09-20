@@ -421,6 +421,17 @@ console. Pysh modules can be imported using the standard import syntax
 as soon as pieshell itself has been imported, and from the interactive
 pieshell.
 
+## Eval and exec
+
+By giving an instance of `pieshell.environ.EnvScope` with an environment
+set to interactive as `globals` argument to either `eval` or `exec`, the
+full syntax of Pieshell can be used in the string to evaluate/execute.
+
+    >>> scope = pieshell.environ.EnvScope(env=pieshell.env(interactive=True))
+    >>> eval("ls()", scope)
+    build deps dist LICENSE.txt pieshell pieshell.egg-info README.md
+    setup.py
+
 # Configuration
 
 When running pieshell in interactive mode it executes
