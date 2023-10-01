@@ -13,6 +13,7 @@ import operator
 import re
 import builtins        
 import functools
+import asyncio
 
 from ..utils import copy
 from .. import redir
@@ -42,6 +43,17 @@ class DescribableObject(type):
     def __init__(self, *arg, **kw):
         pass
 
+def asyncitertoiter(aitf):
+    loop = asyncio.get_event_loop()
+    def it():
+        ait = loop.run_until_complete(aitf)
+        while True:
+            try:
+                yield loop.run_until_complete(ait.__anext__())
+            except StopAsyncIteration:
+                return
+    return iter(it())
+            
 class Pipeline(DescribableObject):
     """Abstract base class for all pipelines"""
 
@@ -124,15 +136,19 @@ class Pipeline(DescribableObject):
     def __pos__(self):
         return self.run_interactive()
     
-    def __iter__(self):
+    async def __aiter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
-        return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
+        return await self.run([redir.Redirect("stdout", redir.PIPE)]).__aiter__()
+
+    def __iter__(self):
+        return asyncitertoiter(self.__aiter__())
+    
     def __str__(self):
         # FIXME: Should use locale, but python's locale module is broken and ignores LC_* by default
         return bytes(self).decode("utf-8")
     def __bytes__(self):
         """Runs the pipeline and returns its standrad out output as a string"""
-        return b"".join(self.run([redir.Redirect("stdout", redir.PIPE)]).iterbytes())
+        return b"".join(asyncitertoiter(self.run([redir.Redirect("stdout", redir.PIPE)]).iterbytes()))
     def __invert__(self):
         """Start a pipeline in the background"""
         return self.run()

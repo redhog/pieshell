@@ -58,18 +58,10 @@ class RunningPipeline(object):
         # Just in case all the processes have already terminated...
         # They could have been blindingly fast after all :)
         self.handle_finish()
-    def __iter__(self):
-        def handle_input():
-            for line in iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe, usage=self):
-                yield line
-            self.wait()
-        return iter(handle_input())
-    def iterbytes(self):
-        def handle_input():
-            for data in iterio.InputHandler(self.pipeline._redirects.stdout.pipe, usage=self):
-                yield data
-            self.wait()
-        return iter(handle_input())
+    async def __aiter__(self):
+        return await iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe, usage=self, at_eof=self.wait).__aiter__()
+    async def iterbytes(self):
+        return await iterio.InputHandler(self.pipeline._redirects.stdout.pipe, usage=self, at_eof=self.wait).__aiter__()
     def restart(self):
         self.pipeline_suspended = False
         for process in self.processes:
