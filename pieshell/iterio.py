@@ -164,7 +164,8 @@ class LineInputHandler(InputHandler):
             if not read_data:
                 self.eof = True
                 self.destroy()
-        return True
+            if self.future is not None:
+                self.future.set_result(None)                
 
     async def __aiter__(self):
         return self
