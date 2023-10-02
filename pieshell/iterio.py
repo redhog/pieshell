@@ -128,6 +128,7 @@ class InputHandler(IOHandler):
                 self.destroy()
         if self.future is not None:
             self.future.set_result(None)
+            self.future = None
 
     async def __aiter__(self):
         return self
@@ -135,10 +136,10 @@ class InputHandler(IOHandler):
     async def __anext__(self):
         if self.buffer is None:
             if self.eof:
-                if self.at_eof: self.at_eof()
+                if self.at_eof: await self.at_eof()
                 raise StopAsyncIteration
-            self.future = asyncio.get_event_loop().create_future()
-            await self.future
+            future = self.future = asyncio.get_event_loop().create_future()
+            await future
         try:
             return self.buffer
         finally:
@@ -165,18 +166,19 @@ class LineInputHandler(InputHandler):
                 self.eof = True
                 self.destroy()
             if self.future is not None:
-                self.future.set_result(None)                
+                self.future.set_result(None)
+                self.future = None
 
     async def __aiter__(self):
         return self
     
     async def __anext__(self):
         while not self.eof and b'\n' not in self.buffer:
-            self.future = asyncio.get_event_loop().create_future()
-            await self.future
+            future = self.future = asyncio.get_event_loop().create_future()
+            await future
         if not self.buffer:
             assert self.eof
-            if self.at_eof: self.at_eof()
+            if self.at_eof: await self.at_eof()
             raise StopAsyncIteration
         if b'\n' not in self.buffer:
             self.buffer += b'\n' # No newline at end of file...

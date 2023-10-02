@@ -130,7 +130,7 @@ class Pipeline(DescribableObject):
 
     def run_interactive(self):
         pipeline = self.run()
-        pipeline.wait()
+        asyncio.get_event_loop().run_until_complete(pipeline.wait())
         return pipeline
 
     def __pos__(self):

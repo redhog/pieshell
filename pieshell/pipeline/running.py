@@ -50,6 +50,7 @@ class PipelineSuspended(PipelineError): description = "Pipeline suspended"
 
 class RunningPipeline(object):
     def __init__(self, processes, pipeline):
+        self.finish_future = None
         self.processes = processes
         self.pipeline = pipeline
         self.pipeline_suspended = False
@@ -70,14 +71,15 @@ class RunningPipeline(object):
         self.pipeline_suspended = True
         for process in self.processes:
             process.suspend()
-    def wait(self):
+    async def wait(self):
         try:
             if self.pipeline._env._interactive:
                 stop_signal_handler.current_pipeline = self
             try:
                 self.restart()
                 while not self.pipeline_suspended and self.is_running:
-                    iterio.get_io_manager().handle_io()
+                    future = self.finish_future = asyncio.get_event_loop().create_future()
+                    await future
             except KeyboardInterrupt as e:
                 raise PipelineInterrupted(self)
             if self.pipeline_suspended:
@@ -95,6 +97,10 @@ class RunningPipeline(object):
                 proc.handle_pipeline_finish_destructive()
             if self in self.pipeline._env.running_pipelines:
                 self.pipeline._env.running_pipelines.remove(self)
+        if self.finish_future is not None:
+            self.finish_future.set_result(None)
+            self.finish_future = None
+                
     def remove_output_files(self):
         for proc in self.processes:
             proc.remove_output_files()
