@@ -32,3 +32,8 @@ class TestIterio(unittest.TestCase):
         assert asyncio.get_event_loop().run_until_complete(ihi.__anext__()) == "hello 0"
         assert asyncio.get_event_loop().run_until_complete(ihi.__anext__()) == "hello 1"
 
+    def test_run(self):
+        ls = pieshell.env.echo("hello").run([pieshell.redir.Redirect("stdout", pieshell.redir.PIPE)])
+        ih = asyncio.get_event_loop().run_until_complete(ls.__aiter__())
+        res = asyncio.get_event_loop().run_until_complete(ih.__anext__())
+        assert res == "hello"
