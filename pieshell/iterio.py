@@ -23,10 +23,12 @@ class IOHandler(object):
         self.borrowed = borrowed
         self.enabled = True
         self.usage = usage
+        self.destroyed = False
         self.enable()
     def handle_event(self, event):
         pass
     def destroy(self):
+        if self.destroyed: return
         if self.enabled:
             self.disable()
         if self.borrowed:
@@ -34,6 +36,7 @@ class IOHandler(object):
         else:
             log.log("CLOSE DESTROY %s, %s" % (self.fd, self), "ioreg")
             os.close(self.fd)
+        self.destroyed = True
     def enable(self):
         self.enabled = True
         loop = asyncio.get_event_loop()
@@ -93,11 +96,9 @@ class OutputHandler(IOHandler):
                 os.write(self.fd, val)
         except StopAsyncIteration:
             self.destroy()
-            return True
         except Exception as e:
             self.exception = e
             self.destroy()
-            return True
 
     def _repr_args(self):
         args = IOHandler._repr_args(self)
@@ -117,11 +118,9 @@ class LineOutputHandler(OutputHandler):
         except StopAsyncIteration:
             log.log("STOP ITERATION %s" % self.fd, "ioevent")
             self.destroy()
-            return True
         except Exception as e:
             self.exception = e
             self.destroy()
-            return True
 
 class InputHandler(IOHandler):
     events = select.POLLIN | select.POLLHUP | select.POLLERR
