@@ -13,6 +13,7 @@ import operator
 import re
 import builtins        
 import functools
+import asyncio
 
 from .. import iterio
 from .. import redir
@@ -176,13 +177,17 @@ class RunningFunction(RunningItem):
         return self.iohandler.exception is not None
     def __repr__(self, display_output=False):
         status = list(self.iohandler._repr_args())
-        if self.iohandler.exception is not None:
-            status.append(str(self.iohandler.exception))
         if status:
             status = ' (' + ', '.join(status) + ')'
         else:
             status = ''
-        return '%s%s' % (self.cmd._function_name(), status)
+        status = '%s%s' % (self.cmd._function_name(), status)
+        if self.iohandler.exception is not None:
+            status += "\n" + "".join(traceback.format_exception(
+                type(self.iohandler.exception),
+                self.iohandler.exception,
+                self.iohandler.exception.__traceback__))
+        return status
 
 class RunningProcess(RunningItem):
     class ProcessSignalHandler(iterio.ProcessSignalHandler):

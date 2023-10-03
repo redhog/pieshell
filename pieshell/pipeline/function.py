@@ -15,13 +15,16 @@ import builtins
 import functools
 
 from ..utils import copy
+from ..utils.async import asyncmap, itertoasync
 from .. import iterio
 from .. import redir
 from .. import log
 from . import running
 from . import base
 from . import command
+import types
 
+    
 class Function(base.Pipeline):
     """Encapsulates a function or iterator so that it can be used
     inside a pipeline. An iterator can only have its output piped into
@@ -69,6 +72,7 @@ class Function(base.Pipeline):
         redirects = redirects.make_pipes()
         log.log(indentation + "Running %s with %s" % (repr(self), repr(redirects)), "cmd")
 
+        @asyncmap
         def convert(x):
             if x is None:
                 return x
@@ -84,14 +88,18 @@ class Function(base.Pipeline):
             thing = thing(
                 iterio.LineInputHandler(redirects.stdin.open(False), usage=self),
                 *self._arg, **self._kw)
-        if hasattr(thing, "__iter__"):
-            thing = iter(thing)
 
+        if not hasattr(thing, "__iter__") and not hasattr(thing, "__aiter__"):
+            thing = [thing]
+        if hasattr(thing, "__iter__"):
+            thing = itertoasync(thing)
+        thing = convert(thing)
+            
         self._running_process = running.RunningFunction(
             self,
             iterio.LineOutputHandler(
                 redirects.stdout.open(False),
-                (convert(x) for x in thing),
+                thing,
                 usage=self))
         self._running_processes = [self._running_process]
         self._redirects = self._running_process.redirects = redirects

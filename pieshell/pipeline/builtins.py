@@ -146,17 +146,14 @@ class BashSource(builtin.Builtin):
         self._redirects = self._cmd._redirects
         return res
     
-    def parse_decls(self, stdin):
+    async def parse_decls(self, stdin):
         # Parse and load environment variables from bash
         lines = []
-        for line in stdin:
-            if line is None:
-                yield; continue
+        async for line in stdin:
             lines.append(line)
         lines = "\n".join(lines)
         vars, funcs = parse_declares(lines)
         self._env._exports.update(vars)
         self._env._bashfunctions.update(funcs)
-        yield
 
 builtin.BuiltinRegistry.register(BashSource)

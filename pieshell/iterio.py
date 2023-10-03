@@ -5,6 +5,7 @@ import errno
 from . import log
 import signalfd
 import asyncio
+from .utils.async import asyncmap, itertoasync
 
 class RecursiveEvent(Exception): pass
 
@@ -75,11 +76,22 @@ class OutputHandler(IOHandler):
         IOHandler.destroy(self)
 
     def handle_event(self, event):
+        asyncio.get_event_loop().create_task(self.send_output())
+
+    async def get_iter(self):
+        if not hasattr(self.iter, "__anext__"):
+            if not hasattr(self.iter, "__aiter__"):
+                self.iter = itertoasync(self.iter)
+            self.iter = await self.iter.__aiter__()
+        return self.iter
+            
+    async def send_output(self):
+        iter = await self.get_iter()
         try:
-            val = next(self.iter)
+            val = await iter.__anext__()
             if val is not None:
                 os.write(self.fd, val)
-        except StopIteration:
+        except StopAsyncIteration:
             self.destroy()
             return True
         except Exception as e:
@@ -95,13 +107,14 @@ class OutputHandler(IOHandler):
 
 
 class LineOutputHandler(OutputHandler):
-    def handle_event(self, event):
+    async def send_output(self):
+        iter = await self.get_iter()
         try:
-            val = next(self.iter)
+            val = await iter.__anext__()
             if val is not None:
                 os.write(self.fd, val + b"\n")
             log.log("WRITE %s, %s" % (self.fd, repr(val)), "io")
-        except StopIteration:
+        except StopAsyncIteration:
             log.log("STOP ITERATION %s" % self.fd, "ioevent")
             self.destroy()
             return True

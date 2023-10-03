@@ -16,6 +16,7 @@ import functools
 import asyncio
 
 from ..utils import copy
+from ..utils.async import asyncitertoiter
 from .. import redir
 from .. import log
 from . import running
@@ -31,6 +32,8 @@ def pipeline_repr(obj):
     repr_state.in_repr += 1
     try:
         return standard_repr(obj)
+    except:
+        return "<Failed to print: " + standard_repr(type(obj)) + " @ " + str(id(obj)) + ">"
     finally:
         repr_state.in_repr -= 1
 builtins.repr = pipeline_repr
@@ -42,17 +45,6 @@ class DescribableObject(type):
         return type.__new__(cls, "", (type,), {})
     def __init__(self, *arg, **kw):
         pass
-
-def asyncitertoiter(aitf):
-    loop = asyncio.get_event_loop()
-    def it():
-        ait = loop.run_until_complete(aitf)
-        while True:
-            try:
-                yield loop.run_until_complete(ait.__anext__())
-            except StopAsyncIteration:
-                return
-    return iter(it())
             
 class Pipeline(DescribableObject):
     """Abstract base class for all pipelines"""
