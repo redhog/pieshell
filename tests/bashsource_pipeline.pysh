@@ -1,4 +1,5 @@
-bashsource("bashsource_pipeline.sh").run_interactive()
+res = bashsource("bashsource_pipeline.sh").run_interactive()
+print(res)
 #print(env._exports["bash_functions"])
 print(env._exports["yyy"])
 

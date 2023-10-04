@@ -13,6 +13,7 @@ import operator
 import re
 import builtins        
 import functools
+import asyncio
 
 from ..utils import copy
 from ..utils.async import asyncmap, itertoasync
@@ -90,7 +91,14 @@ class Function(base.Pipeline):
                 *self._arg, **self._kw)
 
         if not hasattr(thing, "__iter__") and not hasattr(thing, "__aiter__"):
-            thing = [thing]
+            if isinstance(thing, types.CoroutineType):
+                unwrapped = thing
+                async def wrapper():
+                    th = await unwrapped
+                    yield th
+                thing = wrapper()
+            else:
+                thing = [thing]
         if hasattr(thing, "__iter__"):
             thing = itertoasync(thing)
         thing = convert(thing)

@@ -142,7 +142,7 @@ class BashSource(builtin.Builtin):
             "; ".join(args),
             self.parse_decls)
         res = self._cmd._run(redirects, sess, indentation)
-        self._pid = self._cmd._pid
+        #self._pid = self._cmd._pid
         self._redirects = self._cmd._redirects
         return res
     

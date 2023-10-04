@@ -70,12 +70,27 @@ class OutputHandler(IOHandler):
 
     def __init__(self, fd, iter, borrowed = False, usage = None):
         self.iter = iter
-        self.is_running = True
+        self.done_future = asyncio.get_event_loop().create_future()
         self.exception = None
         IOHandler.__init__(self, fd, borrowed, usage)
 
-    def destroy(self):
-        self.is_running = False
+    @property
+    def is_running(self):
+        return not self.done_future.done()
+
+    @property
+    def exception(self):
+        if self.is_running: return None
+        return self.done_future.exception()
+    
+    async def await(self):
+        return await self.done_future
+    
+    def destroy(self, exception = None, value = None):
+        if exception is not None:
+            self.done_future.set_exception(exception)
+        else:
+            self.done_future.set_result(value)
         IOHandler.destroy(self)
 
     def handle_event(self, event):
@@ -93,12 +108,11 @@ class OutputHandler(IOHandler):
         try:
             val = await iter.__anext__()
             if val is not None:
-                os.write(self.fd, val)
+                os.write(self.fd, val)                
         except StopAsyncIteration:
             self.destroy()
         except Exception as e:
-            self.exception = e
-            self.destroy()
+            self.destroy(e)
 
     def _repr_args(self):
         args = IOHandler._repr_args(self)
@@ -119,8 +133,7 @@ class LineOutputHandler(OutputHandler):
             log.log("STOP ITERATION %s" % self.fd, "ioevent")
             self.destroy()
         except Exception as e:
-            self.exception = e
-            self.destroy()
+            self.destroy(e)
 
 class InputHandler(IOHandler):
     events = select.POLLIN | select.POLLHUP | select.POLLERR

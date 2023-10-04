@@ -64,7 +64,9 @@ class Pipeline(DescribableObject):
             thing = redir.Redirect(direction, thing)
         if isinstance(thing, redir.Redirect):
             thing = redir.Redirects(thing, defaults=False)
-        if not isinstance(thing, Pipeline) and (isinstance(thing, types.FunctionType) or hasattr(thing, "__iter__") or hasattr(thing, "__next__")):
+        if not isinstance(thing, Pipeline) and (isinstance(thing, (types.FunctionType, types.MethodType))
+                                                or hasattr(thing, "__iter__")
+                                                or hasattr(thing, "__next__")):
             thing = function.Function(self._env, thing)
         if not isinstance(thing, (Pipeline, redir.Redirects)):
             raise ValueError(type(thing))
