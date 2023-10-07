@@ -55,6 +55,7 @@ class RunningPipeline(object):
         self.processes = processes
         self.pipeline = pipeline
         self.pipeline_suspended = False
+        self.finished = False
         for process in processes:
             process.running_pipeline = self
         # Just in case all the processes have already terminated...
@@ -91,7 +92,8 @@ class RunningPipeline(object):
         finally:
             stop_signal_handler.current_pipeline = None
     def handle_finish(self):
-        if not self.is_running:
+        if not self.is_running and not self.finished:
+            self.finished = True
             for proc in self.processes:
                 proc.handle_pipeline_finish()
             for proc in self.processes:
@@ -129,18 +131,17 @@ class RunningPipeline(object):
     
 class RunningItem(object):
     def __init__(self, cmd, iohandler):
+        self.x = False
         self.cmd = cmd
         self.iohandler = iohandler
         self.output_content = {}
+        asyncio.get_event_loop().create_task(self.await_finish())
+    async def await_finish(self):
+        await self.iohandler.wait()
+        self.running_pipeline.handle_finish()
     @property
     def is_running(self):
         return self.iohandler.is_running
-    def handle_finish(self):
-        for fd, redirect in self.cmd._redirects.redirects.items():
-            if not isinstance(redirect.pipe, redir.STRING): continue
-            with open(redirect.pipe.path) as f:
-                self.output_content[fd] = f.read()
-        self.running_pipeline.handle_finish()
     @property
     def output_files(self):
         if self.output_content is not None: return {}
@@ -190,17 +191,8 @@ class RunningFunction(RunningItem):
         return status
 
 class RunningProcess(RunningItem):
-    class ProcessSignalHandler(iterio.ProcessSignalHandler):
-        def __init__(self, process, pid):
-            self.process = process
-            iterio.ProcessSignalHandler.__init__(self, pid)
-        def handle_event(self, event):
-            res = iterio.ProcessSignalHandler.handle_event(self, event)
-            if not self.is_running:
-                self.process.handle_finish()
-            return res
     def __init__(self, cmd, pid):
-        RunningItem.__init__(self, cmd, self.ProcessSignalHandler(self, pid))
+        RunningItem.__init__(self, cmd, iterio.ProcessSignalHandler(pid))
     def restart(self):
         try:
             os.kill(self.iohandler.pid, signal.SIGCONT)

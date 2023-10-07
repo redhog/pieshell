@@ -71,7 +71,6 @@ class OutputHandler(IOHandler):
     def __init__(self, fd, iter, borrowed = False, usage = None):
         self.iter = iter
         self.done_future = asyncio.get_event_loop().create_future()
-        self.exception = None
         IOHandler.__init__(self, fd, borrowed, usage)
 
     @property
@@ -83,14 +82,15 @@ class OutputHandler(IOHandler):
         if self.is_running: return None
         return self.done_future.exception()
     
-    async def await(self):
+    async def wait(self):
         return await self.done_future
     
     def destroy(self, exception = None, value = None):
-        if exception is not None:
-            self.done_future.set_exception(exception)
-        else:
-            self.done_future.set_result(value)
+        if not self.done_future.done():
+            if exception is not None:
+                self.done_future.set_exception(exception)
+            else:
+                self.done_future.set_result(value)
         IOHandler.destroy(self)
 
     def handle_event(self, event):
@@ -399,7 +399,7 @@ class SignalIteratorHandler(SignalHandler):
 class ProcessSignalHandler(SignalHandler):
     def __init__(self, pid):
         self.last_event = None
-        self.is_running = True
+        self.done_future = asyncio.get_event_loop().create_future()
         self.pid = pid
         SignalHandler.__init__(self, {"ssi_pid": pid})
 
@@ -408,5 +408,22 @@ class ProcessSignalHandler(SignalHandler):
         self.last_event = event
         if event["ssi_code"] == CLD_EXITED:
             log.log("EXIT %s" % self.pid, "signal")
-            self.is_running = False
+            #if exception is not None:
+            #    self.done_future.set_exception(exception)
+            #else:
+            # Do something with exit code here?
+            self.done_future.set_result(event)
             self.destroy()
+
+    @property
+    def is_running(self):
+        return not self.done_future.done()
+
+    @property
+    def exception(self):
+        if self.is_running: return None
+        return self.done_future.exception()
+    
+    async def wait(self):
+        return await self.done_future
+        
