@@ -91,6 +91,8 @@ class RunningPipeline(object):
                 raise PipelineFailed(self)
         finally:
             stop_signal_handler.current_pipeline = None
+    def __await__(self):
+        return self.wait().__await__()
     def handle_finish(self):
         if not self.is_running and not self.finished:
             self.finished = True

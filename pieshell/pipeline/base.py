@@ -121,14 +121,20 @@ class Pipeline(DescribableObject):
         self._env.last_pipeline = pipeline
         self._env.running_pipelines.append(pipeline)
         return pipeline
-
-    def run_interactive(self):
+    
+    async def async_run_interactive(self):
         pipeline = self.run()
-        asyncio.get_event_loop().run_until_complete(pipeline.wait())
+        await pipeline.wait()
         return pipeline
-
+    
+    def run_interactive(self):
+        return asyncio.get_event_loop().run_until_complete(self.async_run_interactive())
+        
     def __pos__(self):
         return self.run_interactive()
+
+    def __await__(self):
+        return self.async_run_interactive().__await__()
     
     async def __aiter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
