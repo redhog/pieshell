@@ -13,8 +13,10 @@ import operator
 import re
 import builtins        
 import functools
+import asyncio
 
 from ..utils import copy
+from ..utils.async import asyncitertoiter
 from .. import redir
 from .. import log
 from . import running
@@ -30,6 +32,8 @@ def pipeline_repr(obj):
     repr_state.in_repr += 1
     try:
         return standard_repr(obj)
+    except:
+        return "<Failed to print: " + standard_repr(type(obj)) + " @ " + str(id(obj)) + ">"
     finally:
         repr_state.in_repr -= 1
 builtins.repr = pipeline_repr
@@ -41,7 +45,7 @@ class DescribableObject(type):
         return type.__new__(cls, "", (type,), {})
     def __init__(self, *arg, **kw):
         pass
-
+            
 class Pipeline(DescribableObject):
     """Abstract base class for all pipelines"""
 
@@ -60,7 +64,9 @@ class Pipeline(DescribableObject):
             thing = redir.Redirect(direction, thing)
         if isinstance(thing, redir.Redirect):
             thing = redir.Redirects(thing, defaults=False)
-        if not isinstance(thing, Pipeline) and (isinstance(thing, types.FunctionType) or hasattr(thing, "__iter__") or hasattr(thing, "__next__")):
+        if not isinstance(thing, Pipeline) and (isinstance(thing, (types.FunctionType, types.MethodType))
+                                                or hasattr(thing, "__iter__")
+                                                or hasattr(thing, "__next__")):
             thing = function.Function(self._env, thing)
         if not isinstance(thing, (Pipeline, redir.Redirects)):
             raise ValueError(type(thing))
@@ -118,21 +124,25 @@ class Pipeline(DescribableObject):
 
     def run_interactive(self):
         pipeline = self.run()
-        pipeline.wait()
+        asyncio.get_event_loop().run_until_complete(pipeline.wait())
         return pipeline
 
     def __pos__(self):
         return self.run_interactive()
     
-    def __iter__(self):
+    async def __aiter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
-        return iter(self.run([redir.Redirect("stdout", redir.PIPE)]))
+        return await self.run([redir.Redirect("stdout", redir.PIPE)]).__aiter__()
+
+    def __iter__(self):
+        return asyncitertoiter(self.__aiter__())
+    
     def __str__(self):
         # FIXME: Should use locale, but python's locale module is broken and ignores LC_* by default
         return bytes(self).decode("utf-8")
     def __bytes__(self):
         """Runs the pipeline and returns its standrad out output as a string"""
-        return b"".join(self.run([redir.Redirect("stdout", redir.PIPE)]).iterbytes())
+        return b"".join(asyncitertoiter(self.run([redir.Redirect("stdout", redir.PIPE)]).iterbytes()))
     def __invert__(self):
         """Start a pipeline in the background"""
         return self.run()

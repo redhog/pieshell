@@ -13,6 +13,7 @@ import operator
 import re
 import builtins        
 import functools
+import asyncio
 
 from .. import iterio
 from .. import redir
@@ -50,26 +51,20 @@ class PipelineSuspended(PipelineError): description = "Pipeline suspended"
 
 class RunningPipeline(object):
     def __init__(self, processes, pipeline):
+        self.finish_future = None
         self.processes = processes
         self.pipeline = pipeline
         self.pipeline_suspended = False
+        self.finished = False
         for process in processes:
             process.running_pipeline = self
         # Just in case all the processes have already terminated...
         # They could have been blindingly fast after all :)
         self.handle_finish()
-    def __iter__(self):
-        def handle_input():
-            for line in iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe, usage=self):
-                yield line
-            self.wait()
-        return iter(handle_input())
-    def iterbytes(self):
-        def handle_input():
-            for data in iterio.InputHandler(self.pipeline._redirects.stdout.pipe, usage=self):
-                yield data
-            self.wait()
-        return iter(handle_input())
+    async def __aiter__(self):
+        return await iterio.LineInputHandler(self.pipeline._redirects.stdout.pipe, usage=self, at_eof=self.wait).__aiter__()
+    async def iterbytes(self):
+        return await iterio.InputHandler(self.pipeline._redirects.stdout.pipe, usage=self, at_eof=self.wait).__aiter__()
     def restart(self):
         self.pipeline_suspended = False
         for process in self.processes:
@@ -78,14 +73,15 @@ class RunningPipeline(object):
         self.pipeline_suspended = True
         for process in self.processes:
             process.suspend()
-    def wait(self):
+    async def wait(self):
         try:
             if self.pipeline._env._interactive:
                 stop_signal_handler.current_pipeline = self
             try:
                 self.restart()
                 while not self.pipeline_suspended and self.is_running:
-                    iterio.get_io_manager().handle_io()
+                    future = self.finish_future = asyncio.get_event_loop().create_future()
+                    await future
             except KeyboardInterrupt as e:
                 raise PipelineInterrupted(self)
             if self.pipeline_suspended:
@@ -96,13 +92,18 @@ class RunningPipeline(object):
         finally:
             stop_signal_handler.current_pipeline = None
     def handle_finish(self):
-        if not self.is_running:
+        if not self.is_running and not self.finished:
+            self.finished = True
             for proc in self.processes:
                 proc.handle_pipeline_finish()
             for proc in self.processes:
                 proc.handle_pipeline_finish_destructive()
             if self in self.pipeline._env.running_pipelines:
                 self.pipeline._env.running_pipelines.remove(self)
+        if self.finish_future is not None:
+            self.finish_future.set_result(None)
+            self.finish_future = None
+                
     def remove_output_files(self):
         for proc in self.processes:
             proc.remove_output_files()
@@ -130,18 +131,17 @@ class RunningPipeline(object):
     
 class RunningItem(object):
     def __init__(self, cmd, iohandler):
+        self.x = False
         self.cmd = cmd
         self.iohandler = iohandler
         self.output_content = {}
+        asyncio.get_event_loop().create_task(self.await_finish())
+    async def await_finish(self):
+        await self.iohandler.wait()
+        self.running_pipeline.handle_finish()
     @property
     def is_running(self):
         return self.iohandler.is_running
-    def handle_finish(self):
-        for fd, redirect in self.cmd._redirects.redirects.items():
-            if not isinstance(redirect.pipe, redir.STRING): continue
-            with open(redirect.pipe.path) as f:
-                self.output_content[fd] = f.read()
-        self.running_pipeline.handle_finish()
     @property
     def output_files(self):
         if self.output_content is not None: return {}
@@ -178,26 +178,21 @@ class RunningFunction(RunningItem):
         return self.iohandler.exception is not None
     def __repr__(self, display_output=False):
         status = list(self.iohandler._repr_args())
-        if self.iohandler.exception is not None:
-            status.append(str(self.iohandler.exception))
         if status:
             status = ' (' + ', '.join(status) + ')'
         else:
             status = ''
-        return '%s%s' % (self.cmd._function_name(), status)
+        status = '%s%s' % (self.cmd._function_name(), status)
+        if self.iohandler.exception is not None:
+            status += "\n" + "".join(traceback.format_exception(
+                type(self.iohandler.exception),
+                self.iohandler.exception,
+                self.iohandler.exception.__traceback__))
+        return status
 
 class RunningProcess(RunningItem):
-    class ProcessSignalHandler(iterio.ProcessSignalHandler):
-        def __init__(self, process, pid):
-            self.process = process
-            iterio.ProcessSignalHandler.__init__(self, pid)
-        def handle_event(self, event):
-            res = iterio.ProcessSignalHandler.handle_event(self, event)
-            if not self.is_running:
-                self.process.handle_finish()
-            return res
     def __init__(self, cmd, pid):
-        RunningItem.__init__(self, cmd, self.ProcessSignalHandler(self, pid))
+        RunningItem.__init__(self, cmd, iterio.ProcessSignalHandler(pid))
     def restart(self):
         try:
             os.kill(self.iohandler.pid, signal.SIGCONT)

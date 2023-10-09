@@ -1,11 +1,11 @@
 import os
-import fcntl
 import select
-import threading
-import signalfd
 import signal
 import errno
 from . import log
+import signalfd
+import asyncio
+from .utils.async import asyncmap, itertoasync
 
 class RecursiveEvent(Exception): pass
 
@@ -15,96 +15,6 @@ def events_to_str(events):
                          and events & getattr(select, name) != 0)])
 
 
-class IOManager(object):
-    def __init__(self):
-        self.io_handlers = {}
-        self.delay = 0
-
-        self.poll = select.poll()
-
-        self.cleanup = []
-
-    def register_cleanup(self, cleanup):
-        self.cleanup.append(cleanup)
-
-    def delay_cleanup(self):
-        self.delay += 1
-
-    def perform_cleanup(self):
-        if self.delay > 0:
-            self.delay -= 1
-        self._do_cleanup()
-
-    def register(self, io_handler):
-        self.enable(io_handler)
-        self.io_handlers[io_handler.fd] = io_handler
-        log.log("REGISTER %s, %s, %s" % (io_handler.fd, events_to_str(io_handler.events), io_handler), "ioreg")
-
-    def enable(self, io_handler):
-        self.poll.register(io_handler.fd, io_handler.events)
-
-    def disable(self, io_handler):
-        self.poll.unregister(io_handler.fd)
-
-    def _do_cleanup(self):
-        while self.delay == 0 and not len(self.io_handlers) and self.cleanup:
-            self.cleanup.pop()()
-
-    def deregister(self, io_handler):
-        self.disable(io_handler)
-        del self.io_handlers[io_handler.fd]
-        self._do_cleanup()
-        log.log("DEREGISTER %s, %s" % (io_handler.fd, io_handler), "ioreg")
-    
-    def handle_io(self, timeout = None):
-        while self.io_handlers:
-            try:
-                events = self.poll.poll(timeout)
-            except IOError as e:
-                if e.errno == errno.EINTR:
-                    continue
-                raise
-
-            log.log("EVENTS %s" % (", ".join("%s:%s" % (fd, events_to_str(event))
-                                             for (fd, event) in events),), "ioevent")
-            assert timeout is not None or events
-            done = False
-            recursive = False
-            for fd, event in events:
-                # Check if the fd is still registered. If we have
-                # multiple events for the same fd, this might not be
-                # the case for the second event...
-                if fd in self.io_handlers:
-                    try:
-                        event_done = self.io_handlers[fd].handle_event(event)
-                        done = done or event_done
-                    except RecursiveEvent:
-                        recursive = True
-            if done:
-                return
-            if recursive:
-                raise RecursiveEvent
-            if timeout is not None:
-                return
-
-    def __repr__(self):
-        return "IOManager(%s)" % (", ".join(repr(iohandler) for iohandler in self.io_handlers.values()),)
-
-io_managers = threading.local()
-def get_io_manager():
-    global signal_manager
-    if not hasattr(io_managers, 'manager'):
-        io_managers.manager = IOManager()
-        if isinstance(threading.current_thread(), threading._MainThread):
-            signal_manager = SignalManager()
-    return io_managers.manager
-
-signal_manager = None
-def get_signal_manager():
-    global signal_manager
-    get_io_manager()
-    return signal_manager
-
 
 class IOHandler(object):
     events = 0
@@ -113,22 +23,37 @@ class IOHandler(object):
         self.borrowed = borrowed
         self.enabled = True
         self.usage = usage
-        get_io_manager().register(self)
+        self.destroyed = False
+        self.enable()
     def handle_event(self, event):
         pass
     def destroy(self):
-        get_io_manager().deregister(self)
+        if self.destroyed: return
+        if self.enabled:
+            self.disable()
         if self.borrowed:
             log.log("HAND BACK %s, %s" % (self.fd, self), "ioreg")
         else:
             log.log("CLOSE DESTROY %s, %s" % (self.fd, self), "ioreg")
             os.close(self.fd)
+        self.destroyed = True
     def enable(self):
         self.enabled = True
-        get_io_manager().enable(self)
+        loop = asyncio.get_event_loop()
+        def callback(event):
+            self.handle_event(event)
+        if self.events & select.POLLIN:
+            loop.add_reader(self.fd, callback, select.POLLIN)
+        if self.events & select.POLLOUT:
+            loop.add_writer(self.fd, callback, select.POLLOUT)
+        log.log("REGISTER %s, %s, %s" % (self.fd, events_to_str(self.events), self), "ioreg")
     def disable(self):
         self.enabled = False
-        get_io_manager().enable(self)
+        loop = asyncio.get_event_loop()
+        if self.events & select.POLLIN:
+            loop.remove_reader(self.fd)
+        if self.events & select.POLLOUT:
+            loop.remove_writer(self.fd)
     def _repr_args(self):
         args = [str(self.fd)]
         if self.usage:
@@ -145,68 +70,79 @@ class OutputHandler(IOHandler):
 
     def __init__(self, fd, iter, borrowed = False, usage = None):
         self.iter = iter
-        self.is_running = True
-        self.recursion = False
-        self.exception = None
+        self.done_future = asyncio.get_event_loop().create_future()
         IOHandler.__init__(self, fd, borrowed, usage)
 
-    def destroy(self):
-        self.is_running = False
+    @property
+    def is_running(self):
+        return not self.done_future.done()
+
+    @property
+    def exception(self):
+        if self.is_running: return None
+        return self.done_future.exception()
+    
+    async def wait(self):
+        return await self.done_future
+    
+    def destroy(self, exception = None, value = None):
+        if not self.done_future.done():
+            if exception is not None:
+                self.done_future.set_exception(exception)
+            else:
+                self.done_future.set_result(value)
         IOHandler.destroy(self)
 
     def handle_event(self, event):
-        if self.recursion:
-            raise RecursiveEvent
-        self.recursion = True
-        try:
-            return self.handle_event_non_recursive(event)
-        finally:
-            self.recursion = False
+        asyncio.get_event_loop().create_task(self.send_output())
 
-    def handle_event_non_recursive(self, event):
+    async def get_iter(self):
+        if not hasattr(self.iter, "__anext__"):
+            if not hasattr(self.iter, "__aiter__"):
+                self.iter = itertoasync(self.iter)
+            self.iter = await self.iter.__aiter__()
+        return self.iter
+            
+    async def send_output(self):
+        iter = await self.get_iter()
         try:
-            val = next(self.iter)
+            val = await iter.__anext__()
             if val is not None:
-                os.write(self.fd, val)
-        except StopIteration:
+                os.write(self.fd, val)                
+        except StopAsyncIteration:
             self.destroy()
-            return True
         except Exception as e:
-            self.exception = e
-            self.destroy()
-            return True
+            self.destroy(e)
 
     def _repr_args(self):
         args = IOHandler._repr_args(self)
         if not self.is_running:
             args.append("stopped")
-        if self.recursion:
-            args.append("recursion")
         return args
 
 
 class LineOutputHandler(OutputHandler):
-    def handle_event_non_recursive(self, event):
+    async def send_output(self):
+        iter = await self.get_iter()
         try:
-            val = next(self.iter)
+            val = await iter.__anext__()
             if val is not None:
                 os.write(self.fd, val + b"\n")
             log.log("WRITE %s, %s" % (self.fd, repr(val)), "io")
-        except StopIteration:
+        except StopAsyncIteration:
             log.log("STOP ITERATION %s" % self.fd, "ioevent")
             self.destroy()
-            return True
         except Exception as e:
-            self.exception = e
-            self.destroy()
-            return True
+            self.destroy(e)
 
 class InputHandler(IOHandler):
     events = select.POLLIN | select.POLLHUP | select.POLLERR
     
-    def __init__(self, fd, borrowed = False, usage = None):
+    def __init__(self, fd, borrowed = False, usage = None, at_eof = None):
         self.buffer = None
         self.eof = False
+        self.future = None
+        self.at_eof = at_eof
         IOHandler.__init__(self, fd, borrowed, usage)
 
     def handle_event(self, event):
@@ -215,19 +151,20 @@ class InputHandler(IOHandler):
             if not self.buffer:
                 self.eof = True
                 self.destroy()
-        return True
+        if self.future is not None:
+            self.future.set_result(None)
+            self.future = None
 
-    def __iter__(self):
+    async def __aiter__(self):
         return self
-
-    def __next__(self):
-        while self.buffer is None:
+    
+    async def __anext__(self):
+        if self.buffer is None:
             if self.eof:
-                raise StopIteration
-            try:
-                get_io_manager().handle_io()
-            except RecursiveEvent:
-                return None
+                if self.at_eof: await self.at_eof()
+                raise StopAsyncIteration
+            future = self.future = asyncio.get_event_loop().create_future()
+            await future
         try:
             return self.buffer
         finally:
@@ -242,8 +179,8 @@ class InputHandler(IOHandler):
         return args
 
 class LineInputHandler(InputHandler):
-    def __init__(self, fd, borrowed = False, usage = None):
-        InputHandler.__init__(self, fd, borrowed, usage)
+    def __init__(self, fd, borrowed = False, usage = None, at_eof = None):
+        InputHandler.__init__(self, fd, borrowed, usage, at_eof)
         self.buffer = b""
 
     def handle_event(self, event):
@@ -253,17 +190,21 @@ class LineInputHandler(InputHandler):
             if not read_data:
                 self.eof = True
                 self.destroy()
-        return True
+            if self.future is not None:
+                self.future.set_result(None)
+                self.future = None
 
-    def __next__(self):
+    async def __aiter__(self):
+        return self
+    
+    async def __anext__(self):
         while not self.eof and b'\n' not in self.buffer:
-            try:
-                get_io_manager().handle_io()
-            except RecursiveEvent:
-                return None
+            future = self.future = asyncio.get_event_loop().create_future()
+            await future
         if not self.buffer:
             assert self.eof
-            raise StopIteration
+            if self.at_eof: await self.at_eof()
+            raise StopAsyncIteration
         if b'\n' not in self.buffer:
             self.buffer += b'\n' # No newline at end of file...
         ret, self.buffer = self.buffer.split(b"\n", 1)
@@ -303,7 +244,6 @@ class SignalManager(IOHandler):
         return True
 
     def handle_event(self, event):
-        res = False
         while True:
             try:
                 siginfo = signalfd.read_siginfo(self.fd)
@@ -332,15 +272,20 @@ class SignalManager(IOHandler):
 
                 for key, signal_handler in list(self.signal_handlers.items()):
                     if self.match_signal(siginfo, signal_handler.filter):
-                        sighandlerres = signal_handler.handle_event(siginfo)
-                        res = res or sighandlerres
-        return res
+                        signal_handler.handle_event(siginfo)
 
     def _repr_args(self):
         args = IOHandler._repr_args(self)
         args.append(repr(self.mask))
         args.append(repr(self.signal_handlers))
         return args
+
+signal_manager = None
+def get_signal_manager():
+    global signal_manager
+    if signal_manager is None:
+        signal_manager = SignalManager()
+    return signal_manager
 
 CLD_EXITED = 1    # Child has exited.
 CLD_KILLED = 2    # Child was killed.
@@ -435,22 +380,26 @@ class SignalHandler(object):
 class SignalIteratorHandler(SignalHandler):
     def __init__(self, filter):
         SignalHandler.__init__(self, filter)
+        self.future = None
         self.buffer = []
     def handle_event(self, event):
         self.buffer[0:0] = [event]
+        if self.future is not None:
+            self.future.set_result(None)
 
-    def __iter__(self):
+    async def __aiter__(self):
         return self
-
-    def __next__(self):
-        while not self.buffer:
-            get_io_manager().handle_io()
+    
+    async def __anext__(self):
+        if not self.buffer:
+            self.future = asyncio.get_event_loop().create_future()
+            await self.future
         return self.buffer.pop()
 
 class ProcessSignalHandler(SignalHandler):
     def __init__(self, pid):
         self.last_event = None
-        self.is_running = True
+        self.done_future = asyncio.get_event_loop().create_future()
         self.pid = pid
         SignalHandler.__init__(self, {"ssi_pid": pid})
 
@@ -459,10 +408,22 @@ class ProcessSignalHandler(SignalHandler):
         self.last_event = event
         if event["ssi_code"] == CLD_EXITED:
             log.log("EXIT %s" % self.pid, "signal")
-            self.is_running = False
+            #if exception is not None:
+            #    self.done_future.set_exception(exception)
+            #else:
+            # Do something with exit code here?
+            self.done_future.set_result(event)
             self.destroy()
-            return True
+
+    @property
+    def is_running(self):
+        return not self.done_future.done()
+
+    @property
+    def exception(self):
+        if self.is_running: return None
+        return self.done_future.exception()
+    
+    async def wait(self):
+        return await self.done_future
         
-# Generate an io-manager, hopefully for the main thread
-# If we don't have one in the main thread, signal handling won't work.
-get_io_manager()

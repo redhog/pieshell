@@ -1,11 +1,9 @@
 import pieshell.log
 
-def testfn(stdin):
+async def testfn(stdin):
     pieshell.log.log("TEST FN START", "test")
     yield "Start"
-    for line in stdin:
-        if line is None:
-            yield; continue
+    async for line in stdin:
         pieshell.log.log("TEST DATA %s" % line, "test")
         yield "Read >%s<" % line
     yield "End"
