@@ -25,6 +25,7 @@ It can be used in two major ways:
   * [Job control](#job-control)
   * [Error handling](#error-handling)
   * [Bashsource](#bashsource)
+  * [Asynchronous IO](#asynchronous-io)
 * [As a python module](#as-a-python-module)
   * [Environment variables](#environment-variables-1)
   * [Argument expansion](#argument-expansion-1)
@@ -363,6 +364,12 @@ will do the same, but without running any script first, esentially
 just using whatever variables are set up by your `.bashrc` or
 `.profile`.
 
+## Asynchronous IO
+
+All constructs described above to use iterators, can equally well be
+used as / with async iterators. Pipelines can be awaited, which runs
+them and waits for them to exit. RunningPipelines can be awaited,
+which just waits for them to exit.
 
 # As a python module
 
