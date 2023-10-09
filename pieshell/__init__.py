@@ -1,6 +1,7 @@
 import pkg_resources
 
 from .iterio import *
+from .signalio import *
 from .redir import *
 from .pipeline import *
 from .environ import *

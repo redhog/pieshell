@@ -16,6 +16,7 @@ import functools
 import asyncio
 
 from .. import iterio
+from .. import signalio
 from .. import redir
 
 try:
@@ -23,13 +24,16 @@ try:
 except:
     psutil = None
 
-class StopSignalHandler(iterio.SignalHandler):
+class StopSignalHandler(signalio.SignalHandler):
     def __init__(self):
         self.current_pipeline = None
-        iterio.SignalHandler.__init__(self, {"ssi_signo": signal.SIGTSTP})
+        signalio.SignalHandler.__init__(self, {"ssi_signo": signal.SIGTSTP})
     def handle_event(self, event):
         if self.current_pipeline is not None:
             self.current_pipeline.pipeline_suspended = True
+            if self.current_pipeline.finish_future is not None:
+                self.current_pipeline.finish_future.set_result(None)
+                self.current_pipeline.finish_future = None
         return True
 stop_signal_handler = StopSignalHandler()
     
@@ -194,7 +198,7 @@ class RunningFunction(RunningItem):
 
 class RunningProcess(RunningItem):
     def __init__(self, cmd, pid):
-        RunningItem.__init__(self, cmd, iterio.ProcessSignalHandler(pid))
+        RunningItem.__init__(self, cmd, signalio.ProcessSignalHandler(pid))
     def restart(self):
         try:
             os.kill(self.iohandler.pid, signal.SIGCONT)
@@ -218,7 +222,7 @@ class RunningProcess(RunningItem):
         status = []
         last_event = self.iohandler.last_event
         if last_event:
-            last_event = iterio.siginfo_to_names(last_event)
+            last_event = signalio.siginfo_to_names(last_event)
         if self.iohandler.is_running:
             if last_event and last_event["ssi_code"] != 'CLD_CONTINUED':
                 status.append("status=%s" % self.iohandler.last_event["ssi_code"])
