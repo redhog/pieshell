@@ -150,7 +150,6 @@ class RunningItem(object):
         return self.iohandler.is_running
     @property
     def output_files(self):
-        if self.output_content is not None: return {}
         return {fd: redirect.pipe
                 for fd, redirect in self.cmd._redirects.redirects.items()
                 if isinstance(redirect.pipe, redir.TMP) and not isinstance(redirect.pipe, redir.STRING)}

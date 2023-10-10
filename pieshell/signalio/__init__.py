@@ -1,7 +1,7 @@
 import os
 from .. import log
 import asyncio
-from . import signalutils
+from .signalutils import *
 
 try:
     import signalfd
@@ -52,7 +52,7 @@ class ProcessSignalHandler(SignalHandler):
     def handle_event(self, event):
         log.log("Process event %s" % self.pid, "signal")
         self.last_event = event
-        if event["ssi_code"] == signalutils.CLD_EXITED:
+        if event["ssi_code"] == CLD_EXITED:
             log.log("EXIT %s" % self.pid, "signal")
             #if exception is not None:
             #    self.done_future.set_exception(exception)
