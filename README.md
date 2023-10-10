@@ -161,11 +161,20 @@ The constructor for redirect takes the following arguments:
 
     Redirect(fd, source, flag=None, mode=0777)
 
-fd can be either an int, or one of "stdin", "stdout" and "stderr.
-source is either a string filename, or an int file descriptor. flag
-and mode have the same semantics as for os.open(). Flags do not have
-to be given for stdin, stdout and stderr / fd 0, 1 and 2 and defaults
-to os.O_RDONLY or os.O_RDONLY | os.O_CREAT.
+`fd` can be either an int, or one of `"stdin"`, `"stdout"` and `"stderr"`.
+
+`source` is either a string filename, an int file descriptor or one of
+the special values `PIPE`, `TMP` and `STRING`. `PIPE` create a new
+pipe which you are required to connect up manually. `TMP` generates a
+temporary named file. The filename is available in
+`RunningPipeline.processes[].output_files[filedescriptornr].path`.
+`STRING` generates a temporary named file, but reads and deletes it
+when the pipeline exists, putting its content in
+`RunningPipeline.processes[].output_content[filedescriptornr]`.
+
+`flag` and `mode` have the same semantics as for `os.open()`. Flags do
+not have to be given for `stdin`, `stdout` and `stderr` / fd `0`, `1`
+and `2` and defaults to `os.O_RDONLY` or `os.O_RDONLY | os.O_CREAT`.
 
 ## Interfacing between python functions and shell commands
 
