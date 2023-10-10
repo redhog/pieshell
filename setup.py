@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 import os.path
 
-VERSION = "0.1.7"
+VERSION = "0.2.0"
 
 with open(os.path.join(os.path.dirname(__file__), "README.md"), "r") as rf:
     with open(os.path.join(os.path.dirname(__file__), "pieshell", "README.md"), "w") as wf:
@@ -19,7 +19,11 @@ setup(
     long_description_content_type = "text/markdown",
     long_description = README,
     keywords = "Python shell pipelines suprocess",
-    install_requires = ["signalfd"],
+    install_requires = [],
+    extras_require = {
+        'linux': ['signalfd'],
+        'ps': ['psutil']
+    },
     version = VERSION,
     author = "Egil Moeller",
     author_email = "egil.moller@piratpartiet.se",
