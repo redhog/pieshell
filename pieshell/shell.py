@@ -2,10 +2,13 @@ import sys
 import os
 import code
 import readline
+import builtins
+import typing
 
 from . import environ
 from . import log
 from . import version
+from . import pipeline
 
 # Example usage
 # for line in env.find(".", name='foo*', type='f') | env.grep("bar.*"):
@@ -72,14 +75,33 @@ Where OPTIONS are any of
                 if kws.get("ptpython", False):
                     import pieshell.monkeypatches.patch_jedi
                     import ptpython.repl
-
                     import pygments.token
                     import ptpython.prompt_style
+                    import asyncio
+                    
                     def in_tokens(self, cli):
                         return [(pygments.token.Token.Prompt, str(environ.envScope))]
                     ptpython.prompt_style.ClassicPrompt.in_tokens = in_tokens
 
-                    ptpython.repl.embed(locals=environ.envScope, vi_mode=False)
+                    ptloop = mainloop = asyncio.get_event_loop()
+                    def config(repl):
+                        old_eval_async = repl.eval_async
+                        async def eval_async(line):
+                            res = await old_eval_async(line)
+                            if isinstance(res, pipeline.Pipeline):
+                                await res.async_run_interactive()
+                                res = None
+                            return res
+                        repl.eval_async = eval_async
+                        return repl
+                    ptloop.run_until_complete(
+                        ptpython.repl.embed(
+                            locals=environ.envScope,
+                            globals={"repr": pieshell.pipeline.base.pipeline_repr},
+                            vi_mode=False,
+                            return_asyncio_coroutine=True,
+                            patch_stdout=True,
+                            configure=config))
                 else:
                     import pieshell
                     code.InteractiveConsole(locals=environ.envScope).interact(banner=pieshell.banner, exitmsg="...om nom nom")

@@ -123,8 +123,17 @@ class Pipeline(DescribableObject):
         return pipeline
     
     async def async_run_interactive(self):
-        pipeline = self.run()
-        await pipeline.wait()
+        pipeline = None
+        try:
+            pipeline = self.run()
+            await pipeline.wait()
+            return pipeline
+        except KeyboardInterrupt as e:
+            log.log("Canceled:\n%s" % (e,), "error")
+        except running.PipelineInterrupted as e:
+            log.log("Canceled:\n%s" % (e,), "error")
+        except running.PipelineSuspended as e:
+            log.log("Suspended:\n%s" % (e,), "error")
         return pipeline
     
     def run_interactive(self):
@@ -152,6 +161,7 @@ class Pipeline(DescribableObject):
     def __invert__(self):
         """Start a pipeline in the background"""
         return self.run()
+    
     def __repr__(self):
         """Runs the command if the environment has interactive=True,
         sending the output to standard out. If the environment is
@@ -159,14 +169,7 @@ class Pipeline(DescribableObject):
         pipeline without running it."""
 
         if not self._started and self._env._interactive and getattr(repr_state, "in_repr", 0) < 1:
-            try:
-                self.run_interactive()
-            except KeyboardInterrupt as e:
-                log.log("Canceled:\n%s" % (e,), "error")
-            except running.PipelineInterrupted as e:
-                log.log("Canceled:\n%s" % (e,), "error")
-            except running.PipelineSuspended as e:
-                log.log("Suspended:\n%s" % (e,), "error")
+            self.run_interactive()
             return ''
         else:
             current_env = getattr(Pipeline._print_state, 'env', None)

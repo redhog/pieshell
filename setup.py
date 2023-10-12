@@ -22,7 +22,8 @@ setup(
     install_requires = [],
     extras_require = {
         'linux': ['signalfd'],
-        'ps': ['psutil']
+        'ps': ['psutil'],
+        'ptpython': ['ptpython']
     },
     version = VERSION,
     author = "Egil Moeller",
