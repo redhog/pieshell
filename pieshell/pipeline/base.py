@@ -197,3 +197,7 @@ class Pipeline(DescribableObject):
     @property
     def __doc__(self):
         return ""
+
+    @property
+    def __signature__(self):
+        return None
