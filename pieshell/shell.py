@@ -75,11 +75,18 @@ Where OPTIONS are any of
 
                     import pygments.token
                     import ptpython.prompt_style
-                    def in_tokens(self, cli):
-                        return [(pygments.token.Token.Prompt, str(environ.envScope))]
-                    ptpython.prompt_style.ClassicPrompt.in_tokens = in_tokens
+                    
+                    prompt = str(environ.envScope)
+                    def in_prompt(self):
+                        return [("class:prompt", prompt)]
+                    ptpython.prompt_style.ClassicPrompt.in_prompt = in_prompt
 
-                    ptpython.repl.repr = pieshell.pipeline.base.standard_repr
+                    def ptrepr(obj):
+                        global prompt
+                        prompt = str(environ.envScope)
+                        return pieshell.pipeline.base.standard_repr(obj)
+                        
+                    ptpython.repl.repr = ptrepr
                     
                     ptpython.repl.embed(locals=environ.envScope, vi_mode=False)
                 else:
