@@ -79,6 +79,8 @@ Where OPTIONS are any of
                         return [(pygments.token.Token.Prompt, str(environ.envScope))]
                     ptpython.prompt_style.ClassicPrompt.in_tokens = in_tokens
 
+                    ptpython.repl.repr = pieshell.pipeline.base.standard_repr
+                    
                     ptpython.repl.embed(locals=environ.envScope, vi_mode=False)
                 else:
                     import pieshell
