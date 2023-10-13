@@ -16,7 +16,7 @@ import functools
 import asyncio
 
 from ..utils import copy
-from ..utils.async import asyncmap, itertoasync
+from ..utils.asyncutils import asyncmap, itertoasync
 from .. import iterio
 from .. import redir
 from .. import log

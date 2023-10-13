@@ -5,7 +5,7 @@ import errno
 from . import log
 import signalfd
 import asyncio
-from .utils.async import asyncmap, itertoasync
+from .utils.asyncutils import asyncmap, itertoasync
 
 class RecursiveEvent(Exception): pass
 

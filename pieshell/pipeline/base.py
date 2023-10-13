@@ -16,7 +16,7 @@ import functools
 import asyncio
 
 from ..utils import copy
-from ..utils.async import asyncitertoiter
+from ..utils.asyncutils import asyncitertoiter
 from .. import redir
 from .. import log
 from . import running
