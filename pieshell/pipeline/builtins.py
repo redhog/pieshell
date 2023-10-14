@@ -2,8 +2,10 @@ import os
 import os.path
 import shlex
 import io
+import asyncio
 
 from . import builtin
+from . import running
 
 class CdBuiltin(builtin.Builtin):
     """Change directory to the supplied path.
@@ -47,6 +49,20 @@ class BgBuiltin(builtin.Builtin):
         return []
 builtin.BuiltinRegistry.register(BgBuiltin)
 
+class RunnningFg(running.BaseRunningItem):
+    def __init__(self, pipeline):
+        self.wrapped_pipeline = pipeline
+        asyncio.get_event_loop().create_task(self.await_finish())
+    @property
+    def is_running(self):
+        return self.wrapped_pipeline.is_running
+    @property
+    def is_failed(self):
+        return self.wrapped_pipeline.is_failed
+    async def await_finish(self):
+        await self.wrapped_pipeline.wait()
+        self.running_pipeline.handle_finish()
+    
 class FgBuiltin(builtin.Builtin):
     """Continue running the last pipeline in the background.
     """
@@ -56,8 +72,7 @@ class FgBuiltin(builtin.Builtin):
         pipeline = self._env.last_pipeline
         if len(self._arg) > 1:
             pipeline = self._arg[1]
-        pipeline.wait()
-        return []
+        return [RunnningFg(pipeline)]
 builtin.BuiltinRegistry.register(FgBuiltin)
 
 class ClearDirCacheBuiltin(builtin.Builtin):

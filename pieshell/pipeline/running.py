@@ -134,10 +134,26 @@ class RunningPipeline(object):
     @property
     def exit_code(self):
         return self.processes[-1].exit_code
-    
-class RunningItem(object):
+
+class BaseRunningItem(object):
+    is_running = False
+    is_failed = False
+    exit_code = 0
+    def handle_pipeline_finish(self):
+        pass
+    def handle_pipeline_finish_destructive(self):
+        pass
+    output_files = {}
+    def remove_output_files(self):
+        for fd, name in self.output_files.items():
+            os.unlink(name)
+    def restart(self):
+        pass
+    def suspend(self):
+        pass
+        
+class RunningItem(BaseRunningItem):
     def __init__(self, cmd, iohandler):
-        self.x = False
         self.cmd = cmd
         self.iohandler = iohandler
         self.output_content = {}
@@ -167,13 +183,6 @@ class RunningItem(object):
                 os.unlink(redirect.pipe.path)
             except FileNotFoundError:
                 pass
-    def remove_output_files(self):
-        for fd, name in self.output_files.items():
-            os.unlink(name)
-    def restart(self):
-        pass
-    def suspend(self):
-        pass
     def __getattr__(self, name):
         return getattr(self.iohandler, name)
 
