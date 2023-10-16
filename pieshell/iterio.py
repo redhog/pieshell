@@ -3,7 +3,6 @@ import select
 import signal
 import errno
 from . import log
-import signalfd
 import asyncio
 from .utils.asyncutils import asyncmap, itertoasync
 
