@@ -33,6 +33,7 @@ It can be used in two major ways:
   * [Eval and exec](#eval-and-exec)
 * [Configuration](#configuration)
   * [Changing the prompt](#changing-the-prompt)
+* [Builtins](#builtins)
 * [External tools](#external-tools)
 * [Unit tests](#unit-tests)
 * [Copyright](#copyright)
