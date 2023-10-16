@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 import os.path
 
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 
 with open(os.path.join(os.path.dirname(__file__), "README.md"), "r") as rf:
     with open(os.path.join(os.path.dirname(__file__), "pieshell", "README.md"), "w") as wf:
@@ -30,7 +30,7 @@ setup(
     license = "GPL",
     url = "https://github.com/redhog/pieshell",
     packages = find_packages(),
-    package_data={'pieshell': ['*.md', '*.json', '*.pysh']},
+    package_data={'pieshell': ['*.md', '*.json', '*/*.pysh']},
     entry_points={
         'console_scripts': [
             'pieshell = pieshell.shell:main',
