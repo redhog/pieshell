@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import resource
 
 class PieshellLogFDHandler(logging.StreamHandler):
     def emit(self, record):
@@ -28,7 +29,7 @@ elif hasattr(sys.stderr, "fileno"):
     outfd = sys.stderr.fileno()
 else:
     outfd = 1
-logfd = 1023
+logfd = resource.getrlimit(resource.RLIMIT_NOFILE)[0] - 1
 os.dup2(outfd, logfd)
 def log(msg, category="misc"):
     logging.getLogger(category).error(msg)
