@@ -8,7 +8,6 @@ import code
 import traceback
 import threading
 import signal
-import signalfd
 import operator
 import re
 import builtins        
@@ -135,6 +134,21 @@ class RunningPipeline(object):
     def exit_code(self):
         return self.processes[-1].exit_code
 
+    def __ror__(self, other):
+        # Call reredirect here
+        other = self.pipeline._coerce(other, 'stdin')
+        if isinstance(other, redir.Redirects):
+            pass
+        else:
+            pass
+    def __or__(self, other):
+        # Call reredirect here
+        other = self.pipeline._coerce(other, 'stdout')
+        if isinstance(other, redir.Redirects):
+            pass
+        else:
+            pass
+        
 class BaseRunningItem(object):
     is_running = False
     is_failed = False
