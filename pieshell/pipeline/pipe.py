@@ -8,7 +8,6 @@ import code
 import traceback
 import threading
 import signal
-import signalfd
 import operator
 import re
 import builtins        
