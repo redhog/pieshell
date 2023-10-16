@@ -1,7 +1,8 @@
 import sys
-import os
+import os.path
 import code
 import readline
+import atexit
 
 from . import environ
 from . import log
@@ -69,6 +70,11 @@ Where OPTIONS are any of
                 for arg in args:
                     environ.envScope.execute_file(arg)
             else:
+                history = os.path.expanduser('~/.config/pieshell.history')
+                if os.path.exists(history):
+                    readline.read_history_file(history)
+                atexit.register(readline.write_history_file, history)
+                
                 if kws.get("ptpython", False):
                     import pieshell.monkeypatches.patch_jedi
                     import ptpython.repl
@@ -91,7 +97,13 @@ Where OPTIONS are any of
                     ptpython.repl.embed(locals=environ.envScope, vi_mode=False)
                 else:
                     import pieshell
-                    code.InteractiveConsole(locals=environ.envScope).interact(banner=pieshell.banner, exitmsg="...om nom nom")
+                    import rlcompleter
+           
+                    scope = environ.envScope
+                    readline.set_completer(rlcompleter.Completer(scope).complete)
+                    readline.parse_and_bind("tab: complete")
+                        
+                    code.InteractiveConsole(locals=scope).interact(banner=pieshell.banner, exitmsg="...om nom nom")
 
 if __name__ == '__main__':
     main()
