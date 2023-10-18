@@ -30,6 +30,7 @@ It can be used in two major ways:
   * [Environment variables](#environment-variables-1)
   * [Argument expansion](#argument-expansion-1)
   * [Pysh modules](#pysh-modules)
+  * [Pysh functions](#pysh-functions)
   * [Eval and exec](#eval-and-exec)
 * [Configuration](#configuration)
   * [Changing the prompt](#changing-the-prompt)
