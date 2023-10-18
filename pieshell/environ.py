@@ -5,6 +5,8 @@ import glob
 import code
 import contextlib
 import pkg_resources
+import types
+import builtins
 
 from . import pipeline
 from . import redir
@@ -174,7 +176,13 @@ class Environment(object):
         try:
             yield
         finally:
-            self._scope["env"] = self
+            self._scope["env"] = self    
+    def pyshfunction(self, fn):
+        return types.FunctionType(
+            fn.__code__, EnvScope(env=self, _parent_scope=fn.__globals__),
+            name=fn.__name__,
+            argdefs=fn.__defaults__,
+            closure=fn.__closure__)
             
 env = Environment()
 
@@ -199,13 +207,18 @@ class EnvScope(dict):
         except KeyError:
             pass
         env = dict.__getitem__(self, 'env')
+        parent = None
+        if dict.__contains__(self, '_parent_scope'):
+            parent = dict.__getitem__(self, '_parent_scope')
         if name != "_":
             if name == "exports":
                 return env._exports
             if name in env._exports:
                 return env._exports[name]
-            if name in __builtins__:
-                raise KeyError(name)
+            if parent is not None and name in parent:
+                return parent[name]
+            if hasattr(builtins, name):
+                return getattr(builtins, name)
         return getattr(env, name)
 
     def keys(self):

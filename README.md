@@ -440,6 +440,25 @@ console. Pysh modules can be imported using the standard import syntax
 as soon as pieshell itself has been imported, and from the interactive
 pieshell.
 
+Be aware that you won't get a `NameError` for misspelled variable
+names in pyshmodules, but instead a
+`pieshell.pipeline.running.PipelineFailed` error, or if not used in a
+way that will cause it to run, just a pipeline object stored somewhere
+it shouldn't.
+
+## Pysh functions
+
+Sometimes you don't want to extract a bunch of functions to a separate
+pysh module, but you'd still like to be able to use the simpler syntax
+in them. That's still possible usig the `@pyshfunction` decorator:
+
+    >>> @pieshell.env.pyshfunction
+    >>> def foo():
+    ...    return list(echo("hello"))
+
+You can use any environment for this, not only the default one like in
+the example above.
+
 ## Eval and exec
 
 By giving an instance of `pieshell.environ.EnvScope` with an environment
