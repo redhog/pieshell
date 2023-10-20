@@ -154,7 +154,7 @@ class InputHandler(IOHandler):
             self.future.set_result(None)
             self.future = None
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return self
     
     async def __anext__(self):
@@ -193,7 +193,7 @@ class LineInputHandler(InputHandler):
                 self.future.set_result(None)
                 self.future = None
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return self
     
     async def __anext__(self):

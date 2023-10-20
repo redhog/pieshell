@@ -163,7 +163,7 @@ class BashSource(builtin.Builtin):
     
     async def parse_decls(self, stdin):
         # Parse and load environment variables from bash
-        lines = []
+        lines = []        
         async for line in stdin:
             lines.append(line)
         lines = "\n".join(lines)
