@@ -4,10 +4,9 @@ import types
 def asyncitertoiter(aitf):
     loop = asyncio.get_event_loop()
     def it():
-        ait = loop.run_until_complete(aitf)
         while True:
             try:
-                yield loop.run_until_complete(ait.__anext__())
+                yield loop.run_until_complete(aitf.__anext__())
             except StopAsyncIteration:
                 return
     return iter(it())
