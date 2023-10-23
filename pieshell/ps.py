@@ -33,7 +33,7 @@ class PstreeGroup(object):
             key = child._getkey(level)
             key = slugify.slugify(key, separator="_")            
             if key not in procs: procs[key] = {}
-            procs[key][str(child.INFO.pid)] = child
+            procs[key][child._getkey(None)] = child
         self.children = {}
         for key, value in procs.items():
             if len(value) == 1:
@@ -55,7 +55,10 @@ class PstreeProcess(object):
             self.INFO = pid
 
     def _getkey(self, level):
-        realattr = attr = self._keys[level]
+        if level == None:
+            realattr = attr = "pid"
+        else:
+            realattr = attr = self._keys[level]
         if attr == "name":
             attr = "exe"
         try:
