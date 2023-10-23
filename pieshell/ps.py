@@ -1,6 +1,7 @@
 import psutil
 import slugify
 import os
+from . import tree
 
 def cmdline2pieshell(cmdline):
     param = False
@@ -25,25 +26,6 @@ def cmdline2pieshell(cmdline):
     if args or kwargs:
         res = ".".join(names) + "(" + ", ".join(args + [k + "=" + v for k, v in kwargs.items()]) + ")"
     return res
-
-class PstreeGroup(object):
-    def __init__(self, children, level=0):
-        procs = {}
-        for child in children:
-            key = child._getkey(level)
-            key = slugify.slugify(key, separator="_")            
-            if key not in procs: procs[key] = {}
-            procs[key][child._getkey(None)] = child
-        self.children = {}
-        for key, value in procs.items():
-            if len(value) == 1:
-                self.children[key] = next(iter(value.values()))
-            else:
-                self.children[key] = PstreeGroup(value.values(), level+1)        
-    def __dir__(self):
-        return self.children.keys()
-    def __getattr__(self, key):
-        return self.children[key]
 
 class PstreeProcess(object):
     _keys = ["name", "exe", "cmdline", "pid"]
@@ -83,7 +65,7 @@ class PstreeProcess(object):
         try:
             children = self.INFO.children()
             children = [PstreeProcess(proc) for proc in children]
-            return PstreeGroup(children)
+            return tree.TreeGroup(children)
         except Exception as e:
             print(e)
             import traceback
