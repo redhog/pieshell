@@ -27,15 +27,11 @@ def cmdline2pieshell(cmdline):
     return res
 
 class PstreeGroup(object):
-    def __init__(self, children, attr):
+    def __init__(self, children, level=0):
         procs = {}
         for child in children:
-            key = self._getkey(child.INFO, attr)
-            if isinstance(key, int):
-                key = attr + "_" + str(key)
-            elif isinstance(key, list):
-                key = " ".join(key)
-            key = slugify.slugify(key, separator="_")
+            key = child._getkey(level)
+            key = slugify.slugify(key, separator="_")            
             if key not in procs: procs[key] = {}
             procs[key][str(child.INFO.pid)] = child
         self.children = {}
@@ -43,44 +39,48 @@ class PstreeGroup(object):
             if len(value) == 1:
                 self.children[key] = next(iter(value.values()))
             else:
-                self.children[key] = PstreeGroup(value.values(), self._nextkey(attr))
-    def _getkey(self, proc, attr):
-        realattr = attr
-        if attr == "name":
-            attr = "exe"
-        try:
-            key = getattr(proc, attr)
-            if attr != "pid":
-                key = key()
-        except psutil.AccessDenied:
-            key = self._getkey(proc, self._nextkey(attr))
-            if attr == "exe" and isinstance(key, list):
-                return key[0]
-            return key
-        if realattr == "name":
-            key = key.split("/")[-1]
-        return key
-        
+                self.children[key] = PstreeGroup(value.values(), level+1)        
     def __dir__(self):
         return self.children.keys()
     def __getattr__(self, key):
         return self.children[key]
-    def _nextkey(self, key):
-        keys = ["name", "exe", "cmdline", "pid"]
-        return keys[keys.index(key) + 1]
 
 class PstreeProcess(object):
+    _keys = ["name", "exe", "cmdline", "pid"]
+    
     def __init__(self, pid):
         if isinstance(pid, int):
             self.INFO = psutil.Process(pid)
         else:
             self.INFO = pid
+
+    def _getkey(self, level):
+        realattr = attr = self._keys[level]
+        if attr == "name":
+            attr = "exe"
+        try:
+            key = getattr(self.INFO, attr)
+            if attr != "pid":
+                key = key()
+        except psutil.AccessDenied:
+            key = self._getkey(level+1)
+            if attr == "exe" and isinstance(key, list):
+                key = key[0]
+        else:
+            if realattr == "name":
+                key = key.split("/")[-1]            
+        if isinstance(key, int):
+            key = attr + "_" + str(key)
+        elif isinstance(key, list):
+            key = " ".join(key)
+        return key
+    
     @property
     def _children(self):
         try:
             children = self.INFO.children()
             children = [PstreeProcess(proc) for proc in children]
-            return PstreeGroup(children, "name")
+            return PstreeGroup(children)
         except Exception as e:
             print(e)
             import traceback
