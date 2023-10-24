@@ -1,11 +1,14 @@
 import slugify
+import re
 
 class TreeGroup(object):
     def __init__(self, children, level=0):
         procs = {}
         for child in children:
             key = child._getkey(level)
-            key = slugify.slugify(key, separator="_")            
+            key = slugify.slugify(key, separator="_")
+            if re.match(r"^[0-9]", key):
+                key = "n" + key
             if key not in procs: procs[key] = {}
             procs[key][child._getkey(None)] = child
         self.children = {}

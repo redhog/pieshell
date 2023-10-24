@@ -338,6 +338,20 @@ To access a `PstreeProcess` object for the current shell and for the
 init process (pid 1), there are two global variables `INIT` and
 `CURRENT`.
 
+The currently logged in users and their login session processes can be
+accessed using the global `USERS` variable with a similar semantic for
+properties.
+
+All these objects support tab completion to let you easily naviage the
+tree of running porcesses on your system.
+
+    redhog@glittertind:~/pieshell[master] >>> USERS.redhog.localhost.mate_panel.mate_terminal.bash.bin_bash.bash.pid_10171.python3_9
+    _('/home/redhog/pieshell/env/bin/python3.9', '/home/redhog/pieshell/env/bin/pieshell') as 26341
+    
+    redhog@glittertind:~/pieshell[master] >>> CURRENT
+    _('/home/redhog/pieshell/env/bin/python3.9', '/home/redhog/pieshell/env/bin/pieshell') as 26341
+
+
 ## Job control
 
 A pipeline can be started in the background by appending `&True`, or

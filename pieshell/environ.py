@@ -264,6 +264,7 @@ class EnvScope(dict):
         env = self["env"]
         self["INIT"] = ps.INIT
         self["CURRENT"] = ps.CURRENT
+        self["USERS"] = ps.USERS
         self["PstreeProcess"] = ps.PstreeProcess
         self["R"] = R
         self["Redirect"] = redir.Redirect

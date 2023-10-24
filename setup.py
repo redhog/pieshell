@@ -19,7 +19,7 @@ setup(
     long_description_content_type = "text/markdown",
     long_description = README,
     keywords = "Python shell pipelines suprocess",
-    install_requires = [],
+    install_requires = ['python-slugify'],
     extras_require = {
         'linux': ['signalfd'],
         'ps': ['psutil']

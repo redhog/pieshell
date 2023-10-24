@@ -94,9 +94,48 @@ class PstreeProcess(object):
             return getattr(self._children, key)
         except:
             return getattr(self.INFO, key)
+    def __len__(self):
+        return len(self.INFO.threads())
+    def __getitem__(self, idx):
+        return self.INFO.threads()[idx]
+    def __iter__(self, idx):
+        return iter(self.INFO.threads())
     def __repr__(self):
         return "%s as %s" % (cmdline2pieshell(self.INFO.cmdline()), self.INFO.pid)
 
+class PstreeLogin(object):
+    def __init__(self, details):
+        self.details = details
+        self.process = PstreeProcess(details.pid)
+
+    def __dir__(self):
+        return dir(self.process)
+    
+    def __getattr__(self, key):
+        try:
+            return getattr(self.process, key)
+        except:
+            return getattr(self.details, key)
+
+    def _getkey(self, level):
+        if level == 0:
+            return self.details.name
+        elif level == 1:
+            return self.details.host
+        return self.process._getkey(level - 2 if level is not None else None)
+        
+class PstreeLogins(object):
+    @property
+    def _children(self):
+        return tree.TreeGroup([PstreeLogin(login) for login in psutil.users()])
+    def __dir__(self):
+        return dir(self._children)
+    def __getattr__(self, key):
+        assert key != "_children"
+        return getattr(self._children, key)
+
+USERS = PstreeLogins()
+    
 CURRENT = PstreeProcess(psutil.Process())
 INIT = PstreeProcess(1)
 
