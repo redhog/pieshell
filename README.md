@@ -288,6 +288,12 @@ of the processes involved in the pipeline:
 * RunningPipeline.wait() waits for all processes in the pipeline to
   terminate.
 
+As a convenience, RunningItem:s can be retrieved by the name of their
+corresponding binary as properties of the RunningPipeline. E.g.
+
+    p = ls | grep(-e, ".py")
+    p.grep
+
 A RunningItem instance represents an external process or a python
 function:
 
@@ -309,11 +315,29 @@ function:
   same names and meaning as the members of the signalfd_siginfo
   struct, see "man signalfd" for details.
 
-* If `psutil` is installed, a `psutil.Process()` instance is available
-  as `RunningProcess.details`, and most of its members and methods are
-  available directly as members and methods on the `RunningProcess`
-  instance, e.g. `RunningProcess.environ()`, `RunningProcess.exe()`.
- 
+### Process browsing
+
+This functionality is only available if `psutil` is installed.
+
+The class `PstreeProcess` represents any process not directly started
+by Pieshell.
+
+`RunningPipeline`, `RunningItem`, and `PstreeProcess` all exposes a
+unified interface where child processes, parent processes, group
+leaders and session leaders are available as properties. Child
+porcesses uses the names of their binaries as property names. Parent
+processes, session and group leaders use `PARENT`, `SESS` and `GROUP`
+respectively.
+
+`RunningItem.details`, and `PstreeProcess.details` contains a
+`psutil.Process()` instance, and most of the members and methods of
+that instance are directly available on the `RunningItem` or
+`PstreeProcess` object.
+
+To access a `PstreeProcess` object for the current shell and for the
+init process (pid 1), there are two global variables `INIT` and
+`CURRENT`.
+
 ## Job control
 
 A pipeline can be started in the background by appending `&True`, or
