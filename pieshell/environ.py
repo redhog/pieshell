@@ -11,6 +11,7 @@ import builtins
 from . import pipeline
 from . import redir
 from . import utils
+from . import ps
 import pieshell
 
 
@@ -261,6 +262,8 @@ class EnvScope(dict):
         
     def execute_startup(self):
         env = self["env"]
+        self["INIT"] = ps.INIT
+        self["CURRENT"] = ps.CURRENT
         self["R"] = R
         self["Redirect"] = redir.Redirect
         self["TMP"] = redir.TMP

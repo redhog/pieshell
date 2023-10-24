@@ -1,7 +1,10 @@
-import psutil
 import slugify
 import os
 from . import tree
+try:
+    import psutil
+except:
+    psutil = None
 
 def cmdline2pieshell(cmdline):
     param = False
@@ -87,9 +90,12 @@ class PstreeProcess(object):
         return dir(self._children)
     def __getattr__(self, key):
         assert key != "_children"
-        return getattr(self._children, key)
+        try:
+            return getattr(self._children, key)
+        except:
+            return getattr(self.INFO, key)
     def __repr__(self):
-        return "%s [%s]" % (cmdline2pieshell(self.INFO.cmdline()), self.INFO.pid)
+        return "%s as %s" % (cmdline2pieshell(self.INFO.cmdline()), self.INFO.pid)
 
 CURRENT = PstreeProcess(psutil.Process())
 INIT = PstreeProcess(1)

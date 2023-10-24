@@ -17,6 +17,8 @@ import asyncio
 from .. import iterio
 from .. import signalio
 from .. import redir
+from .. import tree
+from .. import ps
 
 try:
     import psutil
@@ -134,6 +136,15 @@ class RunningPipeline(object):
     def exit_code(self):
         return self.processes[-1].exit_code
 
+    @property
+    def _children(self):
+        return tree.TreeGroup(self.processes)
+    def __dir__(self):
+        return dir(self._children) + object.__dir__(self)
+    def __getattr__(self, key):
+        if key == "_children": raise AttributeError("_children")
+        return getattr(self._children, key)
+
     def __ror__(self, other):
         # Call reredirect here
         other = self.pipeline._coerce(other, 'stdin')
@@ -165,6 +176,8 @@ class BaseRunningItem(object):
         pass
     def suspend(self):
         pass
+    def _getkey(self, level):
+        return str(id(self))
         
 class RunningItem(BaseRunningItem):
     def __init__(self, cmd, iohandler):
@@ -199,6 +212,10 @@ class RunningItem(BaseRunningItem):
                 pass
     def __getattr__(self, name):
         return getattr(self.iohandler, name)
+    def _getkey(self, level):
+        if level == 0:
+            return repr(self.cmd)
+        return str(id(self))
 
 class RunningFunction(RunningItem):
     @property
@@ -217,9 +234,23 @@ class RunningFunction(RunningItem):
                 self.iohandler.exception,
                 self.iohandler.exception.__traceback__))
         return status
+    def _getkey(self, level):
+        name = self.cmd._function_name()
+        if level == 0:
+            return name.split(".")[-1]
+        elif level == 1:
+            return name
+        elif level == 2:
+            return repr(self.cmd)
+        return str(id(self))
 
 class RunningProcess(RunningItem):
     def __init__(self, cmd, pid):
+        self.details = None
+        try:
+            self.details = ps.PstreeProcess(pid)
+        except:
+            pass
         RunningItem.__init__(self, cmd, signalio.ProcessSignalHandler(pid))
     def restart(self):
         try:
@@ -241,6 +272,14 @@ class RunningProcess(RunningItem):
     def exit_code(self):
         return self.iohandler.last_event["ssi_status"]
     def __repr__(self, display_output=False):
+        res = repr(self.cmd)
+        if display_output:
+            res += "\n"
+            for fd, value in self.output_content.items():
+                fd = redir.Redirect.names_to_fd.get(fd, fd)
+                res += "%s content:\n%s\n" % (fd, value) 
+        return res
+    def _repr(self):
         status = []
         last_event = self.iohandler.last_event
         if last_event:
@@ -258,18 +297,29 @@ class RunningProcess(RunningItem):
             status = ' (' + ', '.join(status) + ')'
         else:
             status = ''
-        res = '%s%s' % (self.iohandler.pid, status)
-        if display_output:
-            res += "\n"
-            for fd, value in self.output_content.items():
-                fd = redir.Redirect.names_to_fd.get(fd, fd)
-                res += "%s content:\n%s\n" % (fd, value) 
+        return '%s%s' % (self.iohandler.pid, status)
+    def __dir__(self):
+        res = RunningItem.__dir__(self)
+        if self.details is not None:
+            res += dir(self.details)
         return res
-    @property
-    def details(self):
-        if psutil is None: return None
-        return psutil.Process(self.pid)
     def __getattr__(self, name):
-        if psutil is None:
+        if self.details is None:
             raise AttributeError(name)
         return getattr(self.details, name)
+
+    def _getkey(self, level):
+        if level is None:
+            return str(id(self))
+        prefix, suffix = self.cmd._split_args
+        if len(prefix) == 1 and level >= 1:
+            level += 1
+        elif len(prefix) == 0:
+            level += 2
+        if level == 0:
+            return prefix[0]
+        elif level == 1:
+            return ".".join(prefix)
+        elif level == 2:
+            return repr(self.cmd)
+        return str(id(self))

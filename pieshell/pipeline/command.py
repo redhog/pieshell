@@ -88,7 +88,8 @@ class BaseCommand(base.Pipeline):
         """
         return type(self)(self._env, self._arg + [name])
 
-    def _repr(self):
+    @property
+    def _split_args(self):
         args = self._arg or []
 
         for prefix_idx in range(0, len(args) + 1):
@@ -97,19 +98,26 @@ class BaseCommand(base.Pipeline):
             if not isinstance(args[prefix_idx], (bytes, str)) or not re.match(r"^[a-zA-Z]*$", args[prefix_idx]):
                 break
 
-        if prefix_idx:
-            prefix = '.'.join(args[:prefix_idx])
+        return args[:prefix_idx], args[prefix_idx:]
+        
+    def _repr(self):
+        prefix, suffix = self._split_args
+
+        if prefix:
+            prefix = '.'.join(prefix)
         else:
             prefix = "_"
-        args = args[prefix_idx:]
 
-        args = [repr(arg) for arg in args]
+        args = [repr(arg) for arg in suffix]
 
         running_process = ''
         if self._running_process:
-            running_process = ' as ' + repr(self._running_process)
+            running_process = ' as ' + self._running_process._repr()
 
-        return u"%s(%s)%s" % (prefix, ', '.join(args), running_process)
+        if args:
+            prefix = u"%s(%s)" % (prefix, ', '.join(args))
+            
+        return u"%s%s" % (prefix, running_process)
 
     def _arg_list(self, redirects = None, sess = None, indentation = ""):
         orig_redirects = redir.Redirects(redirects) if redirects is not None else redir.Redirects()
