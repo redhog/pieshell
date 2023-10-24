@@ -22,6 +22,7 @@ It can be used in two major ways:
   * [Environment variables](#environment-variables)
   * [Argument expansion](#argument-expansion)
   * [Processes](#processes)
+  * [Process browsing](#process-browsing)
   * [Job control](#job-control)
   * [Error handling](#error-handling)
   * [Bashsource](#bashsource)
@@ -315,7 +316,7 @@ function:
   same names and meaning as the members of the signalfd_siginfo
   struct, see "man signalfd" for details.
 
-### Process browsing
+## Process browsing
 
 This functionality is only available if `psutil` is installed.
 
