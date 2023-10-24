@@ -123,6 +123,9 @@ class PstreeLogin(object):
         elif level == 1:
             return self.details.host
         return self.process._getkey(level - 2 if level is not None else None)
+
+    def __repr__(self):
+        return "%s\n  %s" % (repr(self.details), repr(self.process))
         
 class PstreeLogins(object):
     @property
