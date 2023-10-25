@@ -12,11 +12,13 @@ class CdBuiltin(builtin.Builtin):
     """
     name = "cd"
 
+    _replacements = {"PARENT": "..", "ROOT": "/"}
+
     @property
     def _path(self):
         pth = "~"
         if self._arg[1:]:
-            pth = os.path.join(*self._arg[1:])
+            pth = os.path.join(*[self._replacements.get(arg, arg) for arg in self._arg[1:]])
         return pth
 
     def _run(self, redirects, sess, indentation = ""):
@@ -30,9 +32,9 @@ class CdBuiltin(builtin.Builtin):
             pth = "."
         try:
             return [name for name in os.listdir(pth)
-                    if os.path.isdir(os.path.join(pth, name))]
+                    if os.path.isdir(os.path.join(pth, name))] + list(self._replacements.keys())
         except:
-            return []
+            return list(self._replacements.keys())
 
 builtin.BuiltinRegistry.register(CdBuiltin)
 
