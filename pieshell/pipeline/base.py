@@ -135,9 +135,9 @@ class Pipeline(DescribableObject):
     def __await__(self):
         return self.async_run_interactive().__await__()
     
-    async def __aiter__(self):
+    def __aiter__(self):
         """Runs the pipeline and iterates over its standrad output lines."""
-        return await self.run([redir.Redirect("stdout", redir.PIPE)]).__aiter__()
+        return self.run([redir.Redirect("stdout", redir.PIPE)]).__aiter__()
 
     def __iter__(self):
         return asyncitertoiter(self.__aiter__())
