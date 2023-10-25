@@ -37,6 +37,7 @@ It can be used in two major ways:
   * [Changing the prompt](#changing-the-prompt)
 * [Builtins](#builtins)
 * [External tools](#external-tools)
+* [Tips and tricks](#tips-and-tricks)
 * [Unit tests](#unit-tests)
 * [Copyright](#copyright)
 
@@ -578,6 +579,27 @@ A short list of tools that might be usefull together with this project:
 * [ReRedirect](https://github.com/jerome-pouiller/reredirect) - redirect io for an already running process
 * [Reptyr](https://github.com/nelhage/reptyr) - move a running process to a new controlling terminal
 * [Deptyr](https://github.com/antifuchs/deptyr) - forward output for a new process to another controlling terminal
+
+# Tips and tricks
+
+The [pandas reader for a table of fixed-width formatted
+lines](https://pandas.pydata.org/docs/reference/api/pandas.read_fwf.html#pandas.read_fwf)
+does a pretty good job at parsing the output from several standard
+command line tools such as ls(-l):
+
+    >>> pd.read_fwf(io.StringIO(str(ls(-l))))
+         total 328  Unnamed: 1 Unnamed: 2 Unnamed: 3  Unnamed: 4 Unnamed: 5  Unnamed: 6 Unnamed: 7         Unnamed: 8
+    0   drwxr-xr-x           6     redhog     redhog        4096       okt.          16      21:45              build
+    1   -rw-rw-r--           1     redhog     redhog          25       jan.          11       2021        _config.yml
+    2   drwxrwxr-x           2     redhog     redhog        4096       okt.          25      21:30               dist
+    3
+
+    >>> pd.read_fwf(io.StringIO(str(docker.images)))
+       REPOSITORY     TAG      IMAGE ID        CREATED    SIZE
+    0      python       3  a8405b7e74cf   7 months ago   921MB
+    1      ubuntu   22.04  08d22c0ceb15   7 months ago  77.8MB
+    2      ubuntu  latest  d13c942271d6  21 months ago  72.8MB
+
 
 # Unit tests
 
