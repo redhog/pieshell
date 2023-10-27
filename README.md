@@ -569,7 +569,21 @@ this, at the cost of a slightly clumsier syntax:
         # Optional for tab completion
         def __dir__(self):
             return ["light", "dark"]
-    pipeline.BuiltinRegistry.register(CdBuiltin)
+
+Builtins need to be registered to be available in the shell. This can
+be done either from python with
+
+    pipeline.BuiltinRegistry.register(MyMagicBuiltin)
+
+or from setup.py in any package:
+    
+    setup(
+        entry_points={
+            'pieshell.builtin': [
+                "magic = mypackage:MyMagicBuiltin",
+            ]
+        }
+    )
 
 # External tools
 
