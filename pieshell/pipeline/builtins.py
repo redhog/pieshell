@@ -36,8 +36,6 @@ class CdBuiltin(builtin.Builtin):
         except:
             return list(self._replacements.keys())
 
-builtin.BuiltinRegistry.register(CdBuiltin)
-
 class BgBuiltin(builtin.Builtin):
     """Continue running the last pipeline in the background.
     """
@@ -49,7 +47,6 @@ class BgBuiltin(builtin.Builtin):
             pipeline = self._arg[1]
         pipeline.restart()
         return []
-builtin.BuiltinRegistry.register(BgBuiltin)
 
 class RunnningFg(running.BaseRunningItem):
     def __init__(self, pipeline):
@@ -75,7 +72,6 @@ class FgBuiltin(builtin.Builtin):
         if len(self._arg) > 1:
             pipeline = self._arg[1]
         return [RunnningFg(pipeline)]
-builtin.BuiltinRegistry.register(FgBuiltin)
 
 class ClearDirCacheBuiltin(builtin.Builtin):
     """Clear the tab completion cache
@@ -96,8 +92,6 @@ class ClearDirCacheBuiltin(builtin.Builtin):
                     if os.path.isdir(os.path.join(pth, name))]
         except:
             return []
-
-builtin.BuiltinRegistry.register(ClearDirCacheBuiltin)
 
 def parse_declares(data):
     l = shlex.shlex(io.StringIO(data), posix=True)
@@ -172,5 +166,3 @@ class BashSource(builtin.Builtin):
         vars, funcs = parse_declares(lines)
         self._env._exports.update(vars)
         self._env._bashfunctions.update(funcs)
-
-builtin.BuiltinRegistry.register(BashSource)

@@ -2,6 +2,7 @@ from .running import *
 from .base import *
 from .command import *
 from .function import *
+from .builtin import *
 from .builtins import *
 from .pipe import *
 from .redirect import *

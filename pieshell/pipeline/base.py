@@ -13,6 +13,8 @@ import re
 import builtins        
 import functools
 import asyncio
+import io
+import slugify
 
 from ..utils import copy
 from ..utils.asyncutils import asyncitertoiter
@@ -148,6 +150,12 @@ class Pipeline(DescribableObject):
     def __bytes__(self):
         """Runs the pipeline and returns its standrad out output as a string"""
         return b"".join(asyncitertoiter(self.run([redir.Redirect("stdout", redir.PIPE)]).iterbytes()))
+    def to_dataframe(self, col_slugify=True):
+        import pandas as pd
+        res = pd.read_fwf(io.StringIO(str(self)))
+        if col_slugify:
+            res.columns = [slugify.slugify(col, separator="_") for col in res.columns]
+        return res
     def __invert__(self):
         """Start a pipeline in the background"""
         return self.run()

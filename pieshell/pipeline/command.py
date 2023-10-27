@@ -10,7 +10,7 @@ import threading
 import signal
 import operator
 import re
-import builtins        
+import builtins
 import functools
 
 from ..utils import copy

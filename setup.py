@@ -35,6 +35,13 @@ setup(
         'console_scripts': [
             'pieshell = pieshell.shell:main',
         ],
+        'pieshell.builtin': [
+            "cd = pieshell.pipeline.builtins:CdBuiltin",
+            "bg = pieshell.pipeline.builtins:BgBuiltin",
+            "fg = pieshell.pipeline.builtins:FgBuiltin",
+            "clear_dir_cache = pieshell.pipeline.builtins:ClearDirCacheBuiltin",
+            "bashsource = pieshell.pipeline.builtins:BashSource",
+        ]
     },
     scripts = ["pieshell/resources/get_completions"]
 )

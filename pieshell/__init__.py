@@ -1,4 +1,5 @@
 import pkg_resources
+import importlib
 
 from .iterio import *
 from .signalio import *
@@ -20,3 +21,6 @@ with pkg_resources.resource_stream("pieshell", "README.md") as f:
 banner = """%s
 Python %s
 Type help(pieshell) for more information.""" % (name, sys.version.replace("\n", " "),)
+
+for entry in importlib.metadata.entry_points()['pieshell.builtin']:
+    BuiltinRegistry.register(entry.load(), entry.name)

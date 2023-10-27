@@ -4,8 +4,8 @@ class BuiltinRegistry(object):
     builtins = {}
 
     @classmethod
-    def register(cls, builtin_cls):
-        cls.builtins[builtin_cls.name] = builtin_cls
+    def register(cls, builtin_cls, name=None):
+        cls.builtins[name or builtin_cls.name] = builtin_cls
 
     @classmethod
     def get_by_name(cls, name):
