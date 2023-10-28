@@ -90,7 +90,7 @@ class BaseCommand(base.Pipeline):
 
     @property
     def _split_args(self):
-        args = self._arg or []
+        args = self._arg_list()
 
         for prefix_idx in range(0, len(args) + 1):
             if prefix_idx == len(args):
