@@ -1,5 +1,5 @@
 import pkg_resources
-import importlib
+import importlib.metadata
 
 from .iterio import *
 from .signalio import *
