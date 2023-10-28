@@ -247,7 +247,7 @@ class EnvScope(dict):
         code.InteractiveConsole(locals=self).runsource(content, filename, "exec")
 
     def execute_expr(self, expr):
-        exec(expr, self)
+        code.InteractiveConsole(locals=self).runsource(expr, "<expr>")
 
     def _copy_resource(self, resource, dst):
         dstdir = os.path.dirname(dst)
