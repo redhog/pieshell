@@ -69,6 +69,7 @@ class OutputHandler(IOHandler):
 
     def __init__(self, fd, iter, borrowed = False, usage = None):
         self.iter = iter
+        self.recursion_lock = False
         self.done_future = asyncio.get_event_loop().create_future()
         IOHandler.__init__(self, fd, borrowed, usage)
 
@@ -95,17 +96,20 @@ class OutputHandler(IOHandler):
     def handle_event(self, event):
         asyncio.get_event_loop().create_task(self.send_output())
 
-    async def get_iter(self):
+    def get_iter(self):
         if not hasattr(self.iter, "__anext__"):
             if not hasattr(self.iter, "__aiter__"):
                 self.iter = itertoasync(self.iter)
-            self.iter = await self.iter.__aiter__()
+            self.iter = self.iter.__aiter__()
         return self.iter
             
     async def send_output(self):
-        iter = await self.get_iter()
+        if self.recursion_lock: return
+        iter = self.get_iter()
         try:
+            self.recursion_lock = True
             val = await iter.__anext__()
+            self.recursion_lock = False
             if val is not None:
                 os.write(self.fd, val)                
         except StopAsyncIteration:
@@ -122,9 +126,12 @@ class OutputHandler(IOHandler):
 
 class LineOutputHandler(OutputHandler):
     async def send_output(self):
-        iter = await self.get_iter()
+        if self.recursion_lock: return
+        iter = self.get_iter()
         try:
+            self.recursion_lock = True
             val = await iter.__anext__()
+            self.recursion_lock = False
             if val is not None:
                 os.write(self.fd, val + b"\n")
             log.log("WRITE %s, %s" % (self.fd, repr(val)), "io")

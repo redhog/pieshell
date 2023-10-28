@@ -14,7 +14,7 @@ def asyncitertoiter(aitf):
 class itertoasync(object):
     def __init__(self, it):
         self.it = iter(it)
-    async def __aiter__(self):
+    def __aiter__(self):
         self.it = iter(self.it)
         return self
     async def __anext__(self):
@@ -32,8 +32,8 @@ class asyncmap(object):
         self.ait = aiter
     def __call__(self, aiter):
         return type(self)(self.fn, aiter)
-    async def __aiter__(self):
-        self.ait = await self.ait.__aiter__()
+    def __aiter__(self):
+        self.ait = self.ait.__aiter__()
         return self
     async def __anext__(self):
         return self.fn(await self.ait.__anext__())
