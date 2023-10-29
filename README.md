@@ -1,4 +1,6 @@
 ![Python application](https://github.com/redhog/pieshell/workflows/Python%20application/badge.svg)
+![Test coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fredhog%2Fae708112848f5b5d4bd17e156a2f53e3%2Fraw%2F7158c5e81be72b6387c438a9008ebcc746792558%2Fpieshell-cobertura-coverage.json)
+
 
 # About
 
