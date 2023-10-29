@@ -25,3 +25,8 @@ jobs:
     - name: Test with nose2
       run: |
         nose2 -v -s tests
+    - name: Generate badges
+      uses: gaelgirodon/ci-badges-action@v1
+      with:
+        gist-id: ae708112848f5b5d4bd17e156a2f53e3
+        token: ${{ secrets.GIST_TOKEN }}
