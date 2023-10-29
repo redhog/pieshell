@@ -27,10 +27,11 @@ jobs:
         nose2 --coverage-report=xml --with-coverage --plugin nose2.plugins.junitxml --junit-xml -v -s tests
     - name: JUnit version fix
       run: |
-        { echo '<?xml version="1.0" encoding="UTF-8"?>'; echo '<testsuites time="15.682687">'; cat pieshell/nose2-junit.xml; echo '</testsuites>'; } > x
-        mv x pieshell/nose2-junit.xml
+        { echo '<?xml version="1.0" encoding="UTF-8"?>'; echo '<testsuites time="15.682687">'; cat nose2-junit.xml; echo '</testsuites>'; } > x
+        mv x nose2-junit.xml
+        pwd
         echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-        cat pieshell/nose2-junit.xml
+        cat nose2-junit.xml
         echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     - name: Generate badges
       uses: gaelgirodon/ci-badges-action@v1
