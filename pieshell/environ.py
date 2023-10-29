@@ -114,7 +114,7 @@ class Environment(object):
               and wait until the pipeline terminates.
         """
         if exports is None:
-            exports = self._exports
+            exports = dict(self._exports)
         if interactive is None:
             interactive = self._interactive
         if redirects is None:
@@ -223,7 +223,8 @@ class EnvScope(dict):
         return getattr(env, name)
 
     def keys(self):
-        return dict.keys(self) + dir(dict.__getitem__(self, 'env'))
+        env = dict.__getitem__(self, 'env')
+        return list(dict.keys(self)) + list(env._exports.keys()) + dir(env)
 
     def __bytes__(self):
         return str(self).encode("utf-8")
