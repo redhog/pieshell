@@ -3,9 +3,9 @@ import pieshell
 import sys
 import os
 
-dir = os.path.dirname(__file__)
-sys.path[0:0] = [dir]
-pieshell.envScope["env"]._cd(dir)
+dirname = os.path.dirname(__file__)
+sys.path[0:0] = [dirname]
+pieshell.envScope["env"]._cd(dirname)
 
 
 class TestRepr(unittest.TestCase):
@@ -20,3 +20,9 @@ class TestRepr(unittest.TestCase):
         assert "ls('-l') as" in repr(p)
         assert "with 1 --> /dev/null" in repr(p)
         assert "(exit_code=0)" in repr(p)
+
+    def test_pipe_dir(self):
+        e = pieshell.env
+        p = e.ls | e.cat
+        assert "src" in dir(p)
+        assert "dst" in dir(p)
