@@ -65,18 +65,9 @@ class PstreeProcess(object):
     
     @property
     def _children(self):
-        try:
-            children = self.INFO.children()
-            children = [PstreeProcess(proc) for proc in children]
-            return tree.TreeGroup(children)
-        except Exception as e:
-            print(e)
-            import traceback
-            traceback.print_exc()
-            import pdb, sys
-            sys.last_traceback = sys.exc_info()[2]
-            pdb.pm()
-        return None
+        children = self.INFO.children()
+        children = [PstreeProcess(proc) for proc in children]
+        return tree.TreeGroup(children)
     @property
     def PARENT(self):
         return PstreeProcess(self.INFO.parent())

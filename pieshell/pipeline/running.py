@@ -171,6 +171,8 @@ class BaseRunningItem(object):
     output_files = {}
     def remove_output_files(self):
         for fd, name in self.output_files.items():
+            if hasattr(name, "path"):
+                name = name.path
             os.unlink(name)
     def restart(self):
         pass
@@ -301,7 +303,10 @@ class RunningProcess(RunningItem):
     def __dir__(self):
         res = RunningItem.__dir__(self)
         if self.details is not None:
-            res += dir(self.details)
+            try:
+                res += dir(self.details)
+            except psutil.NoSuchProcess:
+                pass
         return res
     def __getattr__(self, name):
         if self.details is None:
