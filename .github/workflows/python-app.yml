@@ -20,11 +20,11 @@ jobs:
         python-version: "3.10"
     - name: Install dependencies
       run: |
-        pip install nose2
+        pip install nose2[coverage_plugin]
         pip install -e .[ps,signalfd]
     - name: Test with nose2
       run: |
-        nose2 -v -s tests
+        nose2 --coverage-report=xml --with-coverage -v -s tests
     - name: Generate badges
       uses: gaelgirodon/ci-badges-action@v1
       with:
