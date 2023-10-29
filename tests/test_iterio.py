@@ -1,5 +1,6 @@
 import unittest
 import pieshell.iterio
+import pieshell.utils.asyncutils
 import sys
 import os
 import asyncio
@@ -37,3 +38,51 @@ class TestIterio(unittest.TestCase):
         ih = ls.__aiter__()
         res = asyncio.get_event_loop().run_until_complete(ih.__anext__())
         assert res == "hello"
+
+    def test_asyncitertoiter(self):
+        async def gen():
+            await asyncio.sleep(0.01)
+            yield 1
+            await asyncio.sleep(0.01)
+            yield 2
+        res = list(pieshell.utils.asyncutils.asyncitertoiter(gen()))
+        assert res == [1, 2]
+
+    def test_itertoasync(self):
+        async def tst():
+            res = []
+            async for item in pieshell.utils.asyncutils.itertoasync([1, 2]):
+                res.append(item)
+            return res
+        res = asyncio.get_event_loop().run_until_complete(tst())
+        assert res == [1, 2]
+        
+    def test_itertoasync2(self):
+        async def val(x):
+            return x
+        async def tst():
+            res = []
+            async for item in pieshell.utils.asyncutils.itertoasync([
+                    val(1), val(2)]):
+                res.append(item)
+            return res
+        res = asyncio.get_event_loop().run_until_complete(tst())
+        assert res == [1, 2]
+        
+    def test_asyncmap(self):
+        async def gen():
+            yield 1
+            yield 2
+        @pieshell.utils.asyncutils.asyncmap
+        def mapper(a):
+            return a + 1
+        async def tst():
+            res = []
+            async for item in mapper(gen()):
+                res.append(item)
+            return res
+        res = asyncio.get_event_loop().run_until_complete(tst())
+        assert res == [2, 3]
+        
+
+        
