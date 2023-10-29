@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install nose2
-        pip install -e .[psutil,signalfd]
+        pip install -e .[ps,signalfd]
     - name: Test with nose2
       run: |
         nose2 -v -s tests
