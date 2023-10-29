@@ -24,7 +24,7 @@ jobs:
         pip install -e .[ps,signalfd]
     - name: Test with nose2
       run: |
-        nose2 --coverage-report=xml --with-coverage -v -s tests
+        nose2 --coverage-report=xml --with-coverage --plugin nose2.plugins.junitxml --junit-xml -v -s tests
     - name: Generate badges
       uses: gaelgirodon/ci-badges-action@v1
       with:
