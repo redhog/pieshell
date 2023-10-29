@@ -26,3 +26,36 @@ class TestRepr(unittest.TestCase):
         p = e.ls | e.cat
         assert "src" in dir(p)
         assert "dst" in dir(p)
+        
+    def test_env_repr(self):
+        e = pieshell.env
+        s = repr(e)
+        assert s.startswith("[")
+        assert s.endswith("]")
+        assert "/pieshell" in s
+        
+    def test_env_str(self):
+        e = pieshell.env
+        s = str(e)
+        assert s.startswith("[")
+        assert s.endswith("]")
+        assert "/pieshell" in s
+        
+    def test_env_interactive_str(self):
+        e = pieshell.env(interactive=True)
+        s = str(e)
+        assert not s.startswith("[")
+        assert s.endswith(" >>> ")
+        assert "/pieshell" in s
+
+    def test_scope_str(self):
+        s = str(pieshell.EnvScope(env=pieshell.env))
+        assert s.startswith("[")
+        assert s.endswith("]")
+        assert "/pieshell" in s
+
+    def test_scope_bytes(self):
+        s = bytes(pieshell.EnvScope(env=pieshell.env))
+        assert s.startswith(b"[")
+        assert s.endswith(b"]")
+        assert b"/pieshell" in s
