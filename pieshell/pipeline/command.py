@@ -119,16 +119,19 @@ class BaseCommand(base.Pipeline):
             
         return u"%s%s" % (prefix, running_process)
 
+    def _handle_arg_pipes_wrapper(self, item, orig_redirects, redirects, sess, indentation):
+        if isinstance(item, (str, environ.R)):
+            return item
+        elif redirects is not None:
+            return self._handle_arg_pipes(item, orig_redirects, redirects, sess, indentation)
+        else:
+            return "/dev/fd/X"
+    
     def _arg_list(self, redirects = None, sess = None, indentation = ""):
         orig_redirects = redir.Redirects(redirects) if redirects is not None else redir.Redirects()
         orig_redirects.borrow()
         def handle_arg_pipes(item):
-            if isinstance(item, (str, environ.R)):
-                return item
-            elif redirects is not None:
-                return self._handle_arg_pipes(item, orig_redirects, redirects, sess, indentation)
-            else:
-                return "/dev/fd/X"
+            return self._handle_arg_pipes_wrapper(item, orig_redirects, redirects, sess, indentation)
         args = []
         if self._arg:
             for arg in self._arg:

@@ -79,6 +79,7 @@ class Environment(object):
         Returns a list of strings.
         """
         if isinstance(arg, R): return [arg.str]
+        if not isinstance(arg, str): return [arg]
         scope = self._scope or self._exports
         arg = arg % scope
         arg = os.path.expanduser(arg)

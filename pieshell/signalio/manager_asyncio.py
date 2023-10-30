@@ -3,6 +3,7 @@ import select
 import signal
 import errno
 from .. import log
+from .. import init
 import asyncio
 from . import signalutils
 
@@ -76,8 +77,12 @@ class SignalManager(object):
                     signal_handler.handle_event(siginfo)
 
 signal_manager = None
+
+@init.register
+def make_signal_manager():
+    global signal_manager
+    signal_manager = SignalManager()
+
 def get_signal_manager():
     global signal_manager
-    if signal_manager is None:
-        signal_manager = SignalManager()
     return signal_manager

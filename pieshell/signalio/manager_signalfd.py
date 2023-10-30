@@ -8,6 +8,7 @@ import asyncio
 
 from ..iterio import IOHandler
 from . import signalutils
+from .. import init
 
 class SignalManager(IOHandler):
     events = select.POLLIN
@@ -78,8 +79,12 @@ class SignalManager(IOHandler):
         return args
 
 signal_manager = None
+
+@init.register
+def make_signal_manager():
+    global signal_manager
+    signal_manager = SignalManager()
+
 def get_signal_manager():
     global signal_manager
-    if signal_manager is None:
-        signal_manager = SignalManager()
     return signal_manager

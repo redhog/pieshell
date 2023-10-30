@@ -19,6 +19,7 @@ from .. import signalio
 from .. import redir
 from .. import tree
 from .. import ps
+from .. import init
 
 try:
     import psutil
@@ -36,7 +37,12 @@ class StopSignalHandler(signalio.SignalHandler):
                 self.current_pipeline.finish_future.set_result(None)
                 self.current_pipeline.finish_future = None
         return True
-stop_signal_handler = StopSignalHandler()
+
+stop_signal_handler = None
+@init.register
+def make_stop_signal_handler():
+    global stop_signal_handler
+    stop_signal_handler = StopSignalHandler()
     
 class PipelineError(Exception):
     description = "Pipeline"

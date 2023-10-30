@@ -41,6 +41,7 @@ setup(
             "fg = pieshell.pipeline.builtins:FgBuiltin",
             "clear_dir_cache = pieshell.pipeline.builtins:ClearDirCacheBuiltin",
             "bashsource = pieshell.pipeline.builtins:BashSource",
+            "subshell = pieshell.pipeline.builtins:SubShell",
         ]
     },
     scripts = ["pieshell/resources/get_completions"]

@@ -3,9 +3,13 @@ import os.path
 import shlex
 import io
 import asyncio
+import sys
 
+from . import command
 from . import builtin
 from . import running
+from .. import environ
+from .. import init
 
 class CdBuiltin(builtin.Builtin):
     """Change directory to the supplied path.
@@ -166,3 +170,23 @@ class BashSource(builtin.Builtin):
         vars, funcs = parse_declares(lines)
         self._env._exports.update(vars)
         self._env._bashfunctions.update(funcs)
+        
+class SubShell(command.Command, builtin.Builtin):
+    name = "subshell"
+    
+    def _handle_arg_pipes_wrapper(self, item, orig_redirects, redirects, sess, indentation):
+        return item
+                       
+    def _child(self, redirects, args):
+        redirects.perform()
+        os.chdir(self._env._cwd)
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        init.initialize()
+        try:
+            self._arg[1].run_interactive()
+        except Exception as e:
+            sys.stderr.write(str(e))
+            if isinstance(e, running.PipelineError):
+                sys.exit(e.pipeline.exit_code)
+            sys.exit(1)
+        sys.exit(0)
