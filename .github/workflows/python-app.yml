@@ -10,18 +10,35 @@ on:
     branches: [ master ]
     
 jobs:
-  py38:
+  py310:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.8
+    - name: Set up Python 3.10
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: "3.10"
     - name: Install dependencies
       run: |
-        pip install nose2
-        python setup.py develop
+        pip install nose2[coverage_plugin]
+        pip install -e .[ps,signalfd]
     - name: Test with nose2
       run: |
-        nose2 -v -s tests
+        nose2 --coverage-report=xml --with-coverage --plugin nose2.plugins.junitxml --junit-xml -v -s tests
+    - name: JUnit version fix
+      run: |
+        {
+          echo '<?xml version="1.0" encoding="UTF-8"?>'
+          grep "<testsuite " nose2-junit.xml | sed -e "s+testsuite+testsuites+g";
+          cat nose2-junit.xml
+          echo '</testsuites>'
+        } > x
+        mv x nose2-junit.xml
+        echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        cat nose2-junit.xml
+        echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    - name: Generate badges
+      uses: gaelgirodon/ci-badges-action@v1
+      with:
+        gist-id: ae708112848f5b5d4bd17e156a2f53e3
+        token: ${{ secrets.GIST_TOKEN }}
