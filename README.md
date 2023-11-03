@@ -1,6 +1,8 @@
 ![Tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fredhog%2Fae708112848f5b5d4bd17e156a2f53e3%2Fraw%2F7aaf6ce62e5e8a880976d580e322e11cdd012114%2Fpieshell-junit-tests.json)
 ![Test coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fredhog%2Fae708112848f5b5d4bd17e156a2f53e3%2Fraw%2F7158c5e81be72b6387c438a9008ebcc746792558%2Fpieshell-cobertura-coverage.json)
-
+&nbsp;&nbsp;&nbsp;&nbsp;
+![PyPI - Downloads](https://img.shields.io/pypi/dd/pieshell)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/pieshell)
 
 # About
 
