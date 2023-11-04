@@ -21,6 +21,7 @@ from ..utils.asyncutils import asyncitertoiter
 from .. import redir
 from .. import log
 from . import running
+from .. import environ
 
 repr_state = threading.local()
 standard_repr = builtins.repr
@@ -41,18 +42,40 @@ builtins.repr = pipeline_repr
 
 # help() doesn't let you override help on objects, only on classes, so
 # make everything a class...
-class DescribableObject(type):
+# The metaclass and custom reducer / copyreg is to make these objects
+# picklable again (classes aren't picklable)..
+
+def describable_object_reduce(self):
+    cls = type(self)
+    return (
+        cls.__new__,
+        (cls,),
+        {k: v for k, v in self.__dict__.items() if not k.startswith("__")})
+
+import copyreg
+
+class DescribableObjectType(type):
+    def __new__(cls, *arg, **kw):
+        self = type.__new__(cls, *arg, **kw)
+        copyreg.pickle(self, describable_object_reduce)
+        return self
+        
+class DescribableObject(type, metaclass = DescribableObjectType):
     def __new__(cls, *arg, **kw):
         return type.__new__(cls, "", (type,), {})
     def __init__(self, *arg, **kw):
         pass
+
+    def __setstate__(self, state):
+        for key, value in state.items():
+            setattr(self, key, value)
             
 class Pipeline(DescribableObject):
     """Abstract base class for all pipelines"""
-
+    
     _print_state = threading.local()
-    def __init__(self, env):
-        self._env = env
+    def __init__(self, env = None):
+        self._env = env if env is not None else environ.env
         self._started = False
         self.__module__ = None
     def __deepcopy__(self, memo = {}):

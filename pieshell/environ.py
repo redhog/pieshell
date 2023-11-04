@@ -130,6 +130,8 @@ class Environment(object):
     def __getattr__(self, name):
         """Creates a pipeline of one command in the current
         environment."""
+        if name in ("__getstate__", "__setstate__"):
+            raise AttributeError(name)
         if name == "_":
             return pipeline.command.BaseCommand(self)
         else:
@@ -185,7 +187,10 @@ class Environment(object):
             name=fn.__name__,
             argdefs=fn.__defaults__,
             closure=fn.__closure__)
-            
+
+    def __getstate__(self):
+        return {k: None if k == "_scope" else v for k, v in self.__dict__.items()}
+
 env = Environment()
 
 class EnvScope(dict):

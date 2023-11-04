@@ -37,7 +37,7 @@ class BaseCommand(base.Pipeline):
     subclasses that specialcases this handling with the
     BuiltinRegistry.
     """
-    def __new__(cls, env, arg = None):
+    def __new__(cls, env = None, arg = None):
         from . import builtin
         if cls is BaseCommand:
             if arg:

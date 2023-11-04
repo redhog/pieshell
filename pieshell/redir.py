@@ -224,6 +224,8 @@ class Redirects(object):
         for redirect in self.redirects.values():
             redirect.close_source_fd()
     def __getattr__(self, name):
+        if name == "redirects":
+            raise AttributeError(name)
         try:
             return self.redirects[Redirect.fd_names[name]]
         except KeyError:
