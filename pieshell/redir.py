@@ -25,6 +25,8 @@ class SpecialRedirect(object):
     def __init__(self, **kws):
         object.__setattr__(self, "kws", kws)
     def __getattr__(self, name):
+        if name not in self.kws:
+            raise AttributeError(name)
         return self.kws[name]
     def __setattr__(self, name):
         self.kws[name] = value

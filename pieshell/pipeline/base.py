@@ -47,10 +47,16 @@ builtins.repr = pipeline_repr
 
 def describable_object_reduce(self):
     cls = type(self)
+    if hasattr(type, "__getstate__"):
+        state = self.__getstate__()
+    else:
+        state = {k: v for k, v in self.__dict__.items()
+                 if not k.startswith("__")
+                 and k not in ("_running_process", "_running_processes")}
     return (
         cls.__new__,
         (cls,),
-        {k: v for k, v in self.__dict__.items() if not k.startswith("__")})
+        state)
 
 import copyreg
 

@@ -42,6 +42,7 @@ setup(
             "clear_dir_cache = pieshell.pipeline.builtins:ClearDirCacheBuiltin",
             "bashsource = pieshell.pipeline.builtins:BashSource",
             "subshell = pieshell.pipeline.builtins:SubShell",
+            "remote = pieshell.pipeline.builtins:Remote",
         ]
     },
     scripts = ["pieshell/resources/get_completions"]

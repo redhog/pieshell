@@ -189,7 +189,11 @@ class Environment(object):
             closure=fn.__closure__)
 
     def __getstate__(self):
-        return {k: None if k == "_scope" else v for k, v in self.__dict__.items()}
+        def mangle(k, v):
+            if k == "_scope": return None
+            if k == "last_pipeline": return v.pipeline
+            return v
+        return {k: mangle(k, v) for k, v in self.__dict__.items()}
 
 env = Environment()
 

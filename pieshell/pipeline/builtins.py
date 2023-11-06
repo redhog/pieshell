@@ -4,6 +4,8 @@ import shlex
 import io
 import asyncio
 import sys
+import base64
+import pickle
 
 from . import command
 from . import builtin
@@ -190,3 +192,15 @@ class SubShell(command.Command, builtin.Builtin):
                 sys.exit(e.pipeline.exit_code)
             sys.exit(1)
         sys.exit(0)
+
+class Remote(builtin.Builtin):
+    name = "remote"
+
+    def _run(self, redirects, sess, indentation = ""):
+        cmd = base64.b64encode(pickle.dumps(self._arg[-1])).decode("ascii")
+        sshcmd = "pieshell --pcmd='%s'" % cmd
+        self._cmd = self._env.ssh(
+            *self._arg[1:-1], sshcmd)
+        res = self._cmd._run(redirects, sess, indentation)
+        self._redirects = self._cmd._redirects
+        return res

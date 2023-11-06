@@ -34,6 +34,10 @@ class PstreeProcess(object):
     _keys = ["name", "exe", "cmdline", "pid"]
     
     def __init__(self, pid):
+        if psutil is None:
+            self.pid = pid
+            self.INFO = None
+            return
         if isinstance(pid, int):
             self.INFO = psutil.Process(pid)
         else:
@@ -73,10 +77,10 @@ class PstreeProcess(object):
         return PstreeProcess(self.INFO.parent())
     @property
     def GROUP(self):
-        return PstreeProcess(os.getpgid(self.INFO.pid))
+        return PstreeProcess(os.getpgid(self.pid))
     @property
     def SESS(self):
-        return PstreeProcess(os.getsid(self.INFO.pid))
+        return PstreeProcess(os.getsid(self.pid))
     def __dir__(self):
         return dir(self._children)
     def __getattr__(self, key):
@@ -92,6 +96,8 @@ class PstreeProcess(object):
     def __iter__(self, idx):
         return iter(self.INFO.threads())
     def __repr__(self):
+        if self.INFO is None:
+            return str(self.pid)
         return "%s as %s" % (cmdline2pieshell(self.INFO.cmdline()), self.INFO.pid)
 
 class PstreeLogin(object):
@@ -130,7 +136,7 @@ class PstreeLogins(object):
 
 USERS = PstreeLogins()
     
-CURRENT = PstreeProcess(psutil.Process())
+CURRENT = PstreeProcess(os.getpid())
 INIT = PstreeProcess(1)
 
 

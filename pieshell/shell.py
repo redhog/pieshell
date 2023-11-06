@@ -3,6 +3,8 @@ import os.path
 import code
 import readline
 import atexit
+import pickle
+import base64
 
 from . import environ
 from . import log
@@ -41,6 +43,10 @@ Where ACTION is any of
     Execute the given file
   --cmd='any valid pieshell command or python statement'
     Execute the commandline or python statement
+  --pcmd='BASE64'
+    Execute a previously pickled commandline. The BASE64 value should
+    be the output of previously having run
+    base64.b64encode(pickle.dumps(pieshell pipeline))
 
 Where OPTIONS are any of
   --ptpython
@@ -66,6 +72,9 @@ Where OPTIONS are any of
 
             if "cmd" in kws:
                 environ.envScope.execute_expr(kws["cmd"])
+            elif "pcmd" in kws:
+                cmd = pickle.loads(base64.b64decode(kws["pcmd"].encode("ascii")))
+                cmd.run_interactive()
             elif args:
                 for arg in args:
                     environ.envScope.execute_file(arg)

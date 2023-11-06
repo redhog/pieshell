@@ -20,4 +20,6 @@ class TreeGroup(object):
     def __dir__(self):
         return self.children.keys()
     def __getattr__(self, key):
+        if key not in self.children:
+            raise AttributeError(key)
         return self.children[key]
