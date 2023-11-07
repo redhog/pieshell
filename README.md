@@ -618,7 +618,21 @@ command line tools such as ls(-l):
     1      ubuntu   22.04  08d22c0ceb15   7 months ago  77.8MB
     2      ubuntu  latest  d13c942271d6  21 months ago  72.8MB
 
+This pattern has been provided as convenience method on pipelines:
 
+    >>> docker.images.to_dataframe()
+
+The package libsixel-bin lets you convert images to a format that can
+be directly displayed inside some terminal emulators. This can be
+easily combined with matplotlib to display data Jupyter Notebook
+inline style, but in your terminal:
+
+    >>> import matplotlib.pyplot as plt, io
+    >>> plt.scatter([1, 2, 3], [3, 2, 4])
+    >>> buf = io.BytesIO(); plt.savefig(buf, format = 'png')
+    >>> [buf.getvalue()] | img2sixel
+    <Image displayed here in supporting terminals>
+          
 # Unit tests
 
 To run the unit- and integration tests
