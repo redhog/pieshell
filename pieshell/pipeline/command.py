@@ -12,6 +12,9 @@ import operator
 import re
 import builtins
 import functools
+import inspect
+import enum
+import typing
 
 from ..utils import copy
 from .. import iterio
@@ -240,6 +243,59 @@ class Command(command.BaseCommand):
         cmd = self._arg_list_sh() + " "
         return (item.strip() for item in self._env.get_completions(cmd))
 
+    @property
+    def __signature__(self):
+        hlp = str(self("--help"))
+        args = []
+
+        params = {}
+        for param, value in re.findall(r"\s+(--[a-zA-Z][-a-zA-Z]+)([[]?=[^\s\n]*)?", hlp):
+            param = param[2:].replace("-", "_")
+            if param not in params:
+                params[param] = set()
+            if value.startswith("["):
+                value = value[1:-1]
+                params[param].add("") # Optional
+            value = value.strip(" .")
+            value = value.lstrip("=")
+            params[param].add(value)
+
+        for param, values in params.items():
+            enumvalues = set()
+            types = set()
+            default = inspect.Parameter.empty
+            try:
+                for value in values:
+                    if value == "":
+                        types.add(bool)
+                        default = False
+                    elif value[0] == "<":
+                        if value == "<number>":
+                            types.add(int)
+                        else:
+                            types.add(str)
+                    else:
+                        enumvalues.add(value)
+                if enumvalues:
+                    t = enum.Enum(param.title(), {value.upper(): value for value in enumvalues})
+                    t.__module__ = 'builtins'
+                    types.add(t)
+                types = list(types)
+                while len(types) > 1:
+                    types = [typing.Union[types[0],types[1]]] + types[2:]
+            except Exception as e:
+                pass
+            args.append(
+                inspect.Parameter(
+                    param,
+                    kind=inspect.Parameter.KEYWORD_ONLY,
+                    default=default,
+                    annotation=types[0]))
+        
+        return inspect.Signature(
+            args,
+            return_annotation=base.Pipeline)
+    
     def __dir__(self):
         try:
             return list(self._complete())
