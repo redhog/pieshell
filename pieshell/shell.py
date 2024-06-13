@@ -106,11 +106,19 @@ Where OPTIONS are any of
                     ptpython.repl.embed(locals=environ.envScope, vi_mode=False)
                 else:
                     import pieshell
-                    import rlcompleter
-           
+
                     scope = environ.envScope
-                    readline.set_completer(rlcompleter.Completer(scope).complete)
-                    readline.parse_and_bind("tab: complete")
+
+                    try:
+                        import jedi.utils
+                        import jedi.settings
+                    except ImportError:
+                        import rlcompleter
+                        readline.set_completer(rlcompleter.Completer(scope).complete)
+                        readline.parse_and_bind("tab: complete")
+                    else:
+                        from pieshell import jedi_completion
+                        jedi_completion.setup_readline([scope])
                         
                     code.InteractiveConsole(locals=scope).interact(banner=pieshell.banner, exitmsg="...om nom nom")
 
