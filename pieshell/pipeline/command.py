@@ -140,8 +140,13 @@ class BaseCommand(base.Pipeline):
             for arg in self._arg:
                 if isinstance(arg, dict):
                     for name, value in arg.items():
-                        for match in self._env._expand_argument(handle_arg_pipes(value)):
-                            args.append("--%s=%s" % (name, match))
+                        if value is False: # Flag that is turned off
+                            pass
+                        elif value is True:
+                            args.append("--%s" % (name.replace("_", "-"),))
+                        else:
+                            for match in self._env._expand_argument(handle_arg_pipes(value)):
+                                args.append("--%s=%s" % (name.replace("_", "-"), match))
                 else:
                     for match in self._env._expand_argument(handle_arg_pipes(arg)):
                         args.append(match)
@@ -249,7 +254,7 @@ class Command(command.BaseCommand):
         args = []
 
         params = {}
-        for param, value in re.findall(r"\s+(--[a-zA-Z][-a-zA-Z]+)([[]?=[^\s\n]*)?", hlp):
+        for param, value in re.findall(r"\s+(--[a-zA-Z][-a-zA-Z]+)([\[]?=[^\s\n]*)?", hlp):
             param = param[2:].replace("-", "_")
             if param not in params:
                 params[param] = set()
