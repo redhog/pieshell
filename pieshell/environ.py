@@ -236,6 +236,9 @@ class EnvScope(dict):
         env = dict.__getitem__(self, 'env')
         return list(dict.keys(self)) + list(env._exports.keys()) + dir(env)
 
+    def __iter__(self):
+        return iter(self.keys())
+            
     def __bytes__(self):
         return str(self).encode("utf-8")
     
