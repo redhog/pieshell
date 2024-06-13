@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 import os.path
 
-VERSION = "0.2.12"
+VERSION = "0.2.13"
 
 with open(os.path.join(os.path.dirname(__file__), "README.md"), "r") as rf:
     with open(os.path.join(os.path.dirname(__file__), "pieshell", "README.md"), "w") as wf:
@@ -22,7 +22,9 @@ setup(
     install_requires = ['python-slugify'],
     extras_require = {
         'linux': ['signalfd'],
-        'ps': ['psutil']
+        'ps': ['psutil'],
+        'completion': ['jedi'],
+        'ptpython': ['ptpython']
     },
     version = VERSION,
     author = "Egil Moeller",
