@@ -15,6 +15,7 @@ import functools
 import asyncio
 import io
 import slugify
+import pathlib
 
 from ..utils import copy
 from ..utils.asyncutils import asyncitertoiter
@@ -90,7 +91,7 @@ class Pipeline(DescribableObject):
         from . import function
         if thing is None:
             thing = "/dev/null"
-        if isinstance(thing, (str, bytes)):
+        if isinstance(thing, (str, bytes)) or isinstance(thing, pathlib.PurePath):
             thing = redir.Redirect(direction, thing)
         if isinstance(thing, redir.Redirect):
             thing = redir.Redirects(thing, defaults=False)
